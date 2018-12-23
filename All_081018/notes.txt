@@ -1,0 +1,12 @@
+CL_asy1het_ColLer_F2_2018	1 outlier
+CL_HEI10_cmt3_ColLer_F2_2017	HEI10 translocation
+CL_recq4a_recq4b_cmt3_ColLer_F2_2017	Inversion in recq4a on telomere of long arm of chr4 (see PNAS paper)
+CL_sni1_ColLer_F2_2018	SNI1 introgression (Atg#)
+CU_HEI10_ColLer_F2_2016	HEI10 translocation
+EL_taf4b_ColBur_F2_2018	taf4b introgression
+HS_recq4a_recq4b_ColLer_F2_2017	Inversion in recq4a on telomere of long arm of chr4 (see PNAS paper)
+HS_recq4a_recq4b_HEI10_ColLer_F2_2017 Inversion in recq4 on telomere of long arm of chr4 (see PNAS paper). HEI10 translocation
+NY_met1_ColLer_BC_2016	met1 introgression
+SB_msh2_ColLer_F2_2018	msh2 introgression
+SB_msh2_ColCvi_F2_2018	msh2 introgression. Mosaic background
+SB_wt_ColCvi_F2_2018	Mosaic background
