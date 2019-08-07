@@ -6,9 +6,6 @@
 # Usage via Condor submission system on node7:
 # csmit -m 20G -c 1 "/applications/R/R-3.5.0/bin/Rscript ./crossover_SNPfreq_profiles_commandArgs.R 5000 5kb 50 coller.filtarb collerF2.complete.tiger.txt"
 
-library(GenomicRanges)
-library(parallel)
-
 #flankSize <- 5000
 #flankName <- "5kb"
 #winSize <- 50
@@ -21,6 +18,9 @@ flankName <- as.character(args[2])
 winSize <- as.numeric(args[3])
 popName <- args[4]
 SNPsFile <- args[5]
+
+library(GenomicRanges)
+library(parallel)
 
 matDir <- paste0("matrices/")
 system(paste0("[ -d ", matDir, " ] || mkdir ", matDir))
@@ -70,10 +70,11 @@ SNPsGR <- GRanges(seqnames = paste0("Chr",
 		  ranges = IRanges(start = SNPs$X1,
 				   end = SNPs$X1),
 		  strand = "*")
+SNPsGRall <- SNPsGR
 
 # For each chromosome, create sequential SNP intervals
-# and remove those with widths < the mean width of
-# crossover intervals for that chromosome
+# and remove those with widths < the 10th percentile width and
+# > the max width of crossover intervals for that chromosome
 interSNPsGR <- GRanges()
 for(i in 1:length(chrs)) {
   COsGRchr <- COsGR[seqnames(COsGR) == chrs[i]]
@@ -82,7 +83,8 @@ for(i in 1:length(chrs)) {
                             ranges = IRanges(start = start(SNPsGRchr[1:(length(SNPsGRchr)-1)]),
                                              end = start(SNPsGRchr[2:(length(SNPsGRchr))])),
                             strand = "*")
-  interSNPsGRchr <- interSNPsGRchr[width(interSNPsGRchr) >= mean(width(COsGRchr))]
+  interSNPsGRchr <- interSNPsGRchr[width(interSNPsGRchr) >= quantile(width(COsGRchr), 0.10)[[1]] &
+                                   width(interSNPsGRchr) <= max(width(COsGRchr))]
   interSNPsGR <- append(interSNPsGR, interSNPsGRchr)
 }
 SNPsGR <- interSNPsGR
@@ -118,11 +120,12 @@ for(i in 1:length(chrs)) {
 
 # Count number of SNPs that overlap extended SNP intervals
 SNPoverlapsCount <- countOverlaps(query = extendSNPsGR,
-                                  subject = SNPsGR,
+                                  subject = SNPsGRall,
                                   type = "any")
 # Extract qualifying SNPs (those which are within the maximum crossover
 # interval width of at least one other SNP to their right)
 ranLocSNPsGR <- SNPsGR[SNPoverlapsCount > 1]
+stopifnot(identical(SNPsGR, ranLocSNPsGR))
 
 # Remove SNPs too close to chromosome starts and ends
 # [i.e., those within (flankSize - half of the min width of the
@@ -237,7 +240,7 @@ for(x in seq_along(COsGRflank)) {
 # Count SNPs in each window
 COsSNPcountsList <- mclapply(seq_along(COsGRflankWinGRL), function(x) {
   countOverlaps(query = COsGRflankWinGRL[[x]],
-                subject = SNPsGR,
+                subject = SNPsGRall,
                 type = "any",
                 ignore.strand = TRUE)
 }, mc.cores = detectCores())
@@ -280,7 +283,7 @@ for(x in seq_along(ranLocGRflank)) {
 # Count SNPs in each window
 ranLocSNPcountsList <- mclapply(seq_along(ranLocGRflankWinGRL), function(x) {
   countOverlaps(query = ranLocGRflankWinGRL[[x]],
-                subject = SNPsGR,
+                subject = SNPsGRall,
                 type = "any",
                 ignore.strand = TRUE)
 }, mc.cores = detectCores())
