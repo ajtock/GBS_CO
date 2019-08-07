@@ -1,6 +1,7 @@
 #!/applications/R/R-3.5.0/bin/Rscript
 
-# Profile mean coverage around COs and random loci
+# Calculate windowed SNP frequencies around the
+# midpoints of CO intervals and random loci
 
 # Usage via Condor submission system on node7:
 # csmit -m 20G -c 1 "/applications/R/R-3.5.0/bin/Rscript ./crossover_SNPfreq_profiles_commandArgs.R 5000 5kb 50 coller.filtarb collerF2.complete.tiger.txt"
@@ -70,6 +71,23 @@ SNPsGR <- GRanges(seqnames = paste0("Chr",
 				   end = SNPs$X1),
 		  strand = "*")
 
+# For each chromosome, create sequential SNP intervals
+# and remove those with widths < the mean width of
+# crossover intervals for that chromosome
+interSNPsGR <- GRanges()
+for(i in 1:length(chrs)) {
+  COsGRchr <- COsGR[seqnames(COsGR) == chrs[i]]
+  SNPsGRchr <- SNPsGR[seqnames(SNPsGR) == chrs[i]]
+  interSNPsGRchr <- GRanges(seqnames = chrs[i],
+                            ranges = IRanges(start = start(SNPsGRchr[1:(length(SNPsGRchr)-1)]),
+                                             end = start(SNPsGRchr[2:(length(SNPsGRchr))])),
+                            strand = "*")
+  interSNPsGRchr <- interSNPsGRchr[width(interSNPsGRchr) >= mean(width(COsGRchr))]
+  interSNPsGR <- append(interSNPsGR, interSNPsGRchr)
+}
+SNPsGR <- interSNPsGR
+end(SNPsGR) <- start(SNPsGR) 
+
 # For each chromosome, extend SNP coordinates to the
 # maximum of crossover interval widths for that chromosome
 extendSNPsGR <- GRanges()
@@ -86,11 +104,23 @@ for(i in 1:length(chrs)) {
   extendSNPsGR <- append(extendSNPsGR, extendSNPsGRchr)
 }
 
+## Find extended SNP intervals that overlap
+## crossover intervals, and remove corresponding SNPs
+#COs_extendSNPs_overlap <- findOverlaps(query = COsGR,
+#                                       subject = extendSNPsGR,
+#                                       type = "any",
+#                                       select = "all",
+#                                       ignore.strand = TRUE)
+#if(length(COs_extendSNPs_overlap) > 0) {
+#  extendSNPsGR <- extendSNPsGR[-subjectHits(COs_extendSNPs_overlap)]
+#  SNPsGR <- SNPsGR[-subjectHits(COs_extendSNPs_overlap)]
+#}
+
 # Count number of SNPs that overlap extended SNP intervals
 SNPoverlapsCount <- countOverlaps(query = extendSNPsGR,
                                   subject = SNPsGR,
                                   type = "any")
-# Extract qualifying SNPs (those which are within the mean crossover
+# Extract qualifying SNPs (those which are within the maximum crossover
 # interval width of at least one other SNP to their right)
 ranLocSNPsGR <- SNPsGR[SNPoverlapsCount > 1]
 
