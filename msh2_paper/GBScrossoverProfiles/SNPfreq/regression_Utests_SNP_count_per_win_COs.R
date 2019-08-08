@@ -41,18 +41,26 @@ winSize <- as.numeric(args[5])
 FDR <- as.numeric(args[6])
 FDRname <- paste0("FDR", as.character(FDR))
 
-# Load list of matrices in which each list element is a matrix of windowed
-# TEL-CEN crossover interval counts for one F2 individual
-load(paste0("./", pop1Name,
-            "_pooled_F2_CO_frequency_",
-            propName, "_TelCenMatrix_list.RData"))
-pop1_indCOs_perWindow_list <- indCOs_perWindow_list
-rm(indCOs_perWindow_list)
-load(paste0("./", pop2Name,
-            "_pooled_F2_CO_frequency_",
-            propName, "_TelCenMatrix_list.RData"))
-pop2_indCOs_perWindow_list <- indCOs_perWindow_list
-rm(indCOs_perWindow_list)
+matDir <- "matrices/"
+
+# Load matrices in which each row corresponds to a crossover or random locus
+# and each column corresponds to a window within that locus
+pop1_matList <- list(read.table(paste0(matDir,
+                                       pop1Name, "_COs_SNP_frequency_feature_target_and_",
+                                       flankName, "_flank_dataframe.txt"),
+                                header = T),
+                     read.table(paste0(matDir,
+                                       pop1Name, "_COs_SNP_frequency_ranLoc_target_and_",
+                                       flankName, "_flank_dataframe.txt"),
+                                header = T))
+pop2_matList <- list(read.table(paste0(matDir,
+                                       pop2Name, "_COs_SNP_frequency_feature_target_and_",
+                                       flankName, "_flank_dataframe.txt"),
+                                header = T),
+                     read.table(paste0(matDir,
+                                       pop2Name, "_COs_SNP_frequency_ranLoc_target_and_",
+                                       flankName, "_flank_dataframe.txt"),
+                                header = T))
 
 # Define and create new directories and subdirectories
 # to contain results
@@ -65,6 +73,35 @@ UtestDir <- paste0("./U_tests/")
 UtestPlotDir <- paste0(UtestDir, FDRname, "/")
 system(paste0("[ -d ", UtestDir, " ] || mkdir ", UtestDir))
 system(paste0("[ -d ", UtestPlotDir, " ] || mkdir ", UtestPlotDir))
+
+
+# For each population, calculate mean and variances of SNP frequencies
+# in each window along crossovers (list element [[1]]) and
+# random loci (list element [[2]])
+pop1_means <- list(as.vector(apply(X = pop1_matList[[1]],
+                                   MARGIN = 2,
+                                   FUN = mean)),
+                   as.vector(apply(X = pop1_matList[[2]],
+                                   MARGIN = 2,
+                                   FUN = mean))) 
+pop2_means <- list(as.vector(apply(X = pop2_matList[[1]],
+                                   MARGIN = 2,
+                                   FUN = mean)),
+                   as.vector(apply(X = pop2_matList[[2]],
+                                   MARGIN = 2,
+                                   FUN = mean))) 
+pop1_vars <- list(as.vector(apply(X = pop1_matList[[1]],
+                                   MARGIN = 2,
+                                   FUN = var)),
+                   as.vector(apply(X = pop1_matList[[2]],
+                                   MARGIN = 2,
+                                   FUN = var))) 
+pop2_vars <- list(as.vector(apply(X = pop2_matList[[1]],
+                                  MARGIN = 2,
+                                  FUN = var)),
+                  as.vector(apply(X = pop2_matList[[2]],
+                                  MARGIN = 2,
+                                  FUN = var))) 
 
 # For pop1, create a list in which each list element (x) is a vector of
 # F2 crossover interval counts for one proportionally scaled window,
@@ -101,271 +138,319 @@ pop2_winIndCOs_vars <- sapply(seq_along(pop2_winIndCOs_list), function(x) {
   var(pop2_winIndCOs_list[[x]])
 })
 
-# Plot means vs variances as a quick check for overdispersion
+# Plot means vs variances as a quick check for overdispersion;
+# data look overdispersed with greater variances than means
 pdf(paste0(outDir, pop1Name, "_", pop2Name,
-           "_crossover_means_vs_variances_in_",
-           propName, "_of_chromosome_arms.pdf"),
-    height = 5, width = 10)
-par(mfrow = c(1, 2))
+           "_crossover_and_ranLoc_SNP_means_vs_variances.pdf"),
+    height = 10, width = 10)
+par(mfrow = c(2, 2))
 par(mar = c(4.1, 4.1, 3.1, 4.1))
 par(mgp = c(3, 1, 0))
-plot(x = pop1_winIndCOs_means, y = pop1_winIndCOs_vars, pch = 19,
+plot(x = pop1_means[[1]], y = pop1_vars[[1]], pch = 19,
      xlab = "Mean", ylab = "Variance",
-     xlim = c(min(pop1_winIndCOs_means, pop1_winIndCOs_vars),
-              max(pop1_winIndCOs_means, pop1_winIndCOs_vars)),
-     ylim = c(min(pop1_winIndCOs_means, pop1_winIndCOs_vars),
-              max(pop1_winIndCOs_means, pop1_winIndCOs_vars)),
-     main = paste0(pop1Name, " crossovers in ", propName,
-                   " of chromosome arms"),
+     xlim = c(min(pop1_means[[1]], pop1_vars[[1]]),
+              max(pop1_means[[1]], pop1_vars[[1]])),
+     ylim = c(min(pop1_means[[1]], pop1_vars[[1]]),
+              max(pop2_means[[1]], pop1_vars[[1]])),
+     main = paste0("SNPs around ", pop1Name, " crossovers"),
      cex.main = 0.8)
-plot(x = pop2_winIndCOs_means, y = pop2_winIndCOs_vars, pch = 19,
+plot(x = pop2_means[[1]], y = pop2_vars[[1]], pch = 19,
      xlab = "Mean", ylab = "Variance",
-     xlim = c(min(pop2_winIndCOs_means, pop2_winIndCOs_vars),
-              max(pop2_winIndCOs_means, pop2_winIndCOs_vars)),
-     ylim = c(min(pop2_winIndCOs_means, pop2_winIndCOs_vars),
-              max(pop2_winIndCOs_means, pop2_winIndCOs_vars)),
-     main = paste0(pop2Name, " crossovers in ", propName,
-                   " of chromosome arms"),
+     xlim = c(min(pop2_means[[1]], pop2_vars[[1]]),
+              max(pop2_means[[1]], pop2_vars[[1]])),
+     ylim = c(min(pop2_means[[1]], pop2_vars[[1]]),
+              max(pop2_means[[1]], pop2_vars[[1]])),
+     main = paste0("SNPs around ", pop2Name, " crossovers"),
+     cex.main = 0.8)
+plot(x = pop1_means[[2]], y = pop1_vars[[2]], pch = 19,
+     xlab = "Mean", ylab = "Variance",
+     xlim = c(min(pop1_means[[2]], pop1_vars[[2]]),
+              max(pop1_means[[2]], pop1_vars[[2]])),
+     ylim = c(min(pop1_means[[2]], pop1_vars[[2]]),
+              max(pop1_means[[2]], pop1_vars[[2]])),
+     main = paste0("SNPs around ", pop1Name, " random loci"),
+     cex.main = 0.8)
+plot(x = pop2_means[[2]], y = pop2_vars[[2]], pch = 19,
+     xlab = "Mean", ylab = "Variance",
+     xlim = c(min(pop2_means[[2]], pop2_vars[[2]]),
+              max(pop2_means[[2]], pop2_vars[[2]])),
+     ylim = c(min(pop2_means[[2]], pop2_vars[[2]]),
+              max(pop2_means[[2]], pop2_vars[[2]])),
+     main = paste0("SNPs around ", pop2Name, " random loci"),
      cex.main = 0.8)
 dev.off()
 
-# Combine above crossover interval counts lists so that each list element
-# is a vector of pop1 followed by pop2 F2 crossover interval counts for one window
-pops_winIndCOs_list <- lapply(seq_along(pop1_winIndCOs_list), function(x) {
-  c(pop1_winIndCOs_list[[x]], pop2_winIndCOs_list[[x]])
-})
 
 # Create a factor with two levels (pop1Name and pop2Name, corresponding to genotype)
 # to be used as the predictor in regression models
-genotype <- factor(c(rep(pop1Name, times = length(pop1_winIndCOs_list[[1]])),
-                     rep(pop2Name, times = length(pop2_winIndCOs_list[[1]]))),
+genotype <- factor(c(rep(pop1Name, times = dim(pop1_matList[[1]])[1]),
+                     rep(pop2Name, times = dim(pop2_matList[[1]])[1])),
                    levels = c(pop1Name, pop2Name))
 
-# Create dataframe combining genotype and pops_winIndCOs_list
-pops_winIndCOs_df <- data.frame(genotype = factor(c(rep(pop1Name, times = length(pop1_winIndCOs_list[[1]])),
-                                                    rep(pop2Name, times = length(pop2_winIndCOs_list[[1]]))),
-                                                  levels = c(pop1Name, pop2Name)),
-                                matrix(unlist(pops_winIndCOs_list),
-                                       ncol = length(pop1_winIndCOs_list),
-                                       byrow = F))
+# For each population, create a factor with two levels ("Crossovers" and "Random loci",
+# corresponding to feature) to be used as the predictor in regression models
+pop1_feature <- factor(c(rep("Crossovers", times = dim(pop1_matList[[1]])[1]),
+                         rep("Random loci", times = dim(pop1_matList[[2]])[1])),
+                       levels = c("Crossovers", "Random loci"))
+pop2_feature <- factor(c(rep("Crossovers", times = dim(pop2_matList[[1]])[1]),
+                         rep("Random loci", times = dim(pop2_matList[[2]])[1])),
+                       levels = c("Crossovers", "Random loci"))
 
-# For each genomic window, fit various regression models in which genotype is the
-# predictor and crossover counts are the response variable
+
+## By genotype
+
+# For each  window, fit various regression models in which genotype is the
+# predictor and SNP frequency is the response variable
 # Determine which model has best fit
 
 # Normal linear regression, equivalent to a t-test:
-normal <- lapply(seq_along(pops_winIndCOs_list), function(x) {
-  glm(formula = pops_winIndCOs_list[[x]] ~ genotype,
+genotype_normal <- lapply(seq_along(pop1_matList[[1]]), function(x) {
+  glm(formula = c(pop1_matList[[1]][[x]], pop2_matList[[1]][[x]]) ~ genotype,
       family = gaussian(link = "identity"))
 })
 # Get estimates
-normal_estimates <- lapply(seq_along(normal), function(x) {
-  coef(normal[[x]])
+genotype_normal_estimates <- lapply(seq_along(genotype_normal), function(x) {
+  coef(genotype_normal[[x]])
 })
 # Get coefficients
-normal_coef <- lapply(seq_along(normal), function(x) {
-#  if( sum(pops_winIndCOs_list[[x]]) > 0 ) {
-    coef(summary(normal[[x]]))
-#  } else {
-#    mat <- matrix(rep(NA, times = 8), ncol = 4)
-#    rownames(mat) <- c("(Intercept)", paste0("genotype", pop2Name))
-#    colnames(mat) <- c("Estimate", "Std. Error", "t value", "Pr(>|t|)")
-#    mat
-#  }
+genotype_normal_coef <- lapply(seq_along(genotype_normal), function(x) {
+  coef(summary(genotype_normal[[x]]))
 })
 # Get P-values
-normal_Pvals <- sapply(seq_along(normal), function(x) {
-  coef(summary(normal[[x]]))[8]
+genotype_normal_Pvals <- sapply(seq_along(genotype_normal), function(x) {
+  coef(summary(genotype_normal[[x]]))[8]
 })
 # Correct for multiple testing
-normal_AdjPvals <- p.adjust(p = normal_Pvals, method = "BH")
+genotype_normal_AdjPvals <- p.adjust(p = genotype_normal_Pvals, method = "BH")
 # Get Bayesian Information Criterion (BIC); the smaller, the better the fit
-normal_BIC <- sapply(seq_along(normal), function(x) {
-  if( !is.infinite(BIC(normal[[x]])) ) {
-    BIC(normal[[x]])
+genotype_normal_BIC <- sapply(seq_along(genotype_normal), function(x) {
+  if( !is.infinite(BIC(genotype_normal[[x]])) ) {
+    BIC(genotype_normal[[x]])
   } else {
     NA
   }
 })
 # Get Akaike Information Criterion (AIC); the smaller, the better the fit
-normal_AIC <- sapply(seq_along(normal), function(x) {
-  if( !is.infinite(AIC(normal[[x]], k = 2)) ) {
-    AIC(normal[[x]], k = 2)
+genotype_normal_AIC <- sapply(seq_along(genotype_normal), function(x) {
+  if( !is.infinite(AIC(genotype_normal[[x]], k = 2)) ) {
+    AIC(genotype_normal[[x]], k = 2)
   } else {
     NA
   }
 })
 # Get 95% confidence intervals
-normal_CIs <- lapply(seq_along(normal), function(x) {
-  if( sum(pops_winIndCOs_list[[x]]) > 0 ) {
-   confint(normal[[x]])
-  } else {
-    mat <- matrix(rep(NA, times = 4), ncol = 2)
-    rownames(mat) <- c("(Intercept)", paste0("genotype", pop2Name))
-    colnames(mat) <- c("2.5 %", "97.5 %")
-    mat
-  }
+genotype_normal_CIs <- lapply(seq_along(genotype_normal), function(x) {
+  confint(genotype_normal[[x]])
 })
 
 # Evaluate model goodness-of-fit using chi-squared test based on the
 # residual deviance and degrees of freedom
 # A P-value > 0.05 indicates that the model fits the data 
-normal_chisqPvals <- sapply(seq_along(normal), function(x) {
-  1 - pchisq(summary(normal[[x]])$deviance,
-             summary(normal[[x]])$df.residual)
+genotype_normal_chisqPvals <- sapply(seq_along(genotype_normal), function(x) {
+  1 - pchisq(summary(genotype_normal[[x]])$deviance,
+             summary(genotype_normal[[x]])$df.residual)
 })
-print(paste0("P-values from chi-squared goodness-of-fit tests evaluating normal linear regression models for ",
-             length(normal), " genomic windows:"))
-print(normal_chisqPvals)
-print(paste0("Sum of P-values from chi-squared goodness-of-fit tests evaluating normal linear regression models for ",
-             length(normal), " genomic windows:"))
-print(sum(normal_chisqPvals))
+print(paste0("P-values from chi-squared goodness-of-fit tests evaluating genotype_normal linear regression models for ",
+             length(genotype_normal), " genomic windows:"))
+print(genotype_normal_chisqPvals)
+print(paste0("Sum of P-values from chi-squared goodness-of-fit tests evaluating genotype_normal linear regression models for ",
+             length(genotype_normal), " genomic windows:"))
+print(sum(genotype_normal_chisqPvals))
 
-# Use the model to predict mean crossover counts for each genotype
+# Use the model to predict mean SNP frequencies for each genotype
 # and corresponding standard errors
 # The model predicts the correct mean counts
-normal_predict <- lapply(seq_along(normal), function(x) {
+genotype_normal_predict <- lapply(seq_along(genotype_normal), function(x) {
   cbind(data.frame(genotype = c(pop1Name, pop2Name)),
-        mean = predict(normal[[x]],
+        mean = predict(genotype_normal[[x]],
                        newdata = data.frame(genotype = c(pop1Name, pop2Name)),
                        type = "response"),
-        SE = predict(normal[[x]],
+        SE = predict(genotype_normal[[x]],
                      newdata = data.frame(genotype = c(pop1Name, pop2Name)),
                      type = "response",
                      se.fit = TRUE)$se.fit
        )
 })
+genotype_normal_correct_predictions <- sapply(seq_along(genotype_normal_predict), function(x) {
+  c(print(all.equal(genotype_normal_predict[x][[1]]$mean[1],
+                    pop1_means[[1]][x])),
+    print(all.equal(genotype_normal_predict[x][[1]]$mean[2],
+                    pop2_means[[1]][x])))
+})
+print(paste0(as.character(sum(genotype_normal_correct_predictions)),
+             "/", as.character(length(genotype_normal_correct_predictions))))
 
 
 # Poisson regression:
-poisson <- lapply(seq_along(pops_winIndCOs_list), function(x) {
-  glm(formula = pops_winIndCOs_list[[x]] ~ genotype,
-      family = poisson(link = "log"),
-      maxit = 100)
+genotype_poisson <- lapply(seq_along(pop1_matList[[1]]), function(x) {
+  glm(formula = c(pop1_matList[[1]][[x]], pop2_matList[[1]][[x]]) ~ genotype,
+      family = poisson(link = "log"))
 })
 # Get estimates
-poisson_estimates <- lapply(seq_along(poisson), function(x) {
-  coef(poisson[[x]])
+genotype_poisson_estimates <- lapply(seq_along(genotype_poisson), function(x) {
+  coef(genotype_poisson[[x]])
 })
 # Get coefficients
-poisson_coef <- lapply(seq_along(poisson), function(x) {
-    coef(summary(poisson[[x]]))
+genotype_poisson_coef <- lapply(seq_along(genotype_poisson), function(x) {
+    coef(summary(genotype_poisson[[x]]))
 })
 # Get P-values
-poisson_Pvals <- sapply(seq_along(poisson), function(x) {
-  coef(summary(poisson[[x]]))[8]
+genotype_poisson_Pvals <- sapply(seq_along(genotype_poisson), function(x) {
+  coef(summary(genotype_poisson[[x]]))[8]
 })
 # Correct for multiple testing
-poisson_AdjPvals <- p.adjust(p = poisson_Pvals, method = "BH")
+genotype_poisson_AdjPvals <- p.adjust(p = genotype_poisson_Pvals, method = "BH")
 # Get Bayesian Information Criterion (BIC); the smaller, the better the fit
-poisson_BIC <- sapply(seq_along(poisson), function(x) {
-  if( !is.infinite(BIC(poisson[[x]])) ) {
-    BIC(poisson[[x]])
+genotype_poisson_BIC <- sapply(seq_along(genotype_poisson), function(x) {
+  if( !is.infinite(BIC(genotype_poisson[[x]])) ) {
+    BIC(genotype_poisson[[x]])
   } else {
     NA
   }
 })
 # Get Akaike Information Criterion (AIC); the smaller, the better the fit
-poisson_AIC <- sapply(seq_along(poisson), function(x) {
-  if( !is.infinite(AIC(poisson[[x]], k = 2)) ) {
-    AIC(poisson[[x]], k = 2)
+genotype_poisson_AIC <- sapply(seq_along(genotype_poisson), function(x) {
+  if( !is.infinite(AIC(genotype_poisson[[x]], k = 2)) ) {
+    AIC(genotype_poisson[[x]], k = 2)
   } else {
     NA
   }
 })
 # Get 95% confidence intervals
-poisson_CIs <- lapply(seq_along(poisson), function(x) {
-  if( sum(pops_winIndCOs_list[[x]]) > 0 ) {
-   confint(poisson[[x]])
-  } else {
-    mat <- matrix(rep(NA, times = 4), ncol = 2)
-    rownames(mat) <- c("(Intercept)", paste0("genotype", pop2Name))
-    colnames(mat) <- c("2.5 %", "97.5 %")
-    mat
-  }
+genotype_poisson_CIs <- lapply(seq_along(genotype_poisson), function(x) {
+  confint(genotype_poisson[[x]])
 })
 
 # Evaluate model goodness-of-fit using chi-squared test based on the
 # residual deviance and degrees of freedom
 # A P-value > 0.05 indicates that the model fits the data 
-poisson_chisqPvals <- sapply(seq_along(poisson), function(x) {
-  1 - pchisq(summary(poisson[[x]])$deviance,
-             summary(poisson[[x]])$df.residual)
+genotype_poisson_chisqPvals <- sapply(seq_along(genotype_poisson), function(x) {
+  1 - pchisq(summary(genotype_poisson[[x]])$deviance,
+             summary(genotype_poisson[[x]])$df.residual)
 })
 print(paste0("P-values from chi-squared goodness-of-fit tests evaluating Poisson regression models for ",
-             length(poisson), " genomic windows:"))
-print(poisson_chisqPvals)
+             length(genotype_poisson), " genomic windows:"))
+print(genotype_poisson_chisqPvals)
 print(paste0("Sum of P-values from chi-squared goodness-of-fit tests evaluating Poisson regression models for ",
-             length(poisson), " genomic windows:"))
-print(sum(poisson_chisqPvals))
+             length(genotype_poisson), " genomic windows:"))
+print(sum(genotype_poisson_chisqPvals))
 
 # Use the model to predict mean crossover counts for each genotype
 # and corresponding standard errors
 # The model predicts the correct mean counts
-poisson_predict <- lapply(seq_along(poisson), function(x) {
+genotype_poisson_predict <- lapply(seq_along(genotype_poisson), function(x) {
   cbind(data.frame(genotype = c(pop1Name, pop2Name)),
-        mean = predict(poisson[[x]],
+        mean = predict(genotype_poisson[[x]],
                        newdata = data.frame(genotype = c(pop1Name, pop2Name)),
                        type = "response"),
-        SE = predict(poisson[[x]],
+        SE = predict(genotype_poisson[[x]],
                      newdata = data.frame(genotype = c(pop1Name, pop2Name)),
                      type = "response",
                      se.fit = TRUE)$se.fit
        )
 })
+genotype_poisson_correct_predictions <- sapply(seq_along(genotype_poisson_predict), function(x) {
+  c(print(all.equal(genotype_poisson_predict[x][[1]]$mean[1],
+                    pop1_means[[1]][x])),
+    print(all.equal(genotype_poisson_predict[x][[1]]$mean[2],
+                    pop2_means[[1]][x])))
+})
+print(paste0(as.character(sum(genotype_poisson_correct_predictions)),
+             "/", as.character(length(genotype_poisson_correct_predictions))))
+
 
 # Zero-inflated Poisson (ZIP) regression:
-ZIP <- lapply(seq_along(pops_winIndCOs_list), function(x) {
-  zeroinfl(formula = pops_winIndCOs_list[[x]] ~ genotype | 1,
+genotype_ZIP <- lapply(seq_along(pop1_matList[[1]]), function(x) {
+  zeroinfl(formula = c(pop1_matList[[1]][[x]], pop2_matList[[1]][[x]]) ~ genotype | 1,
            dist = "poisson",
            maxit = 2000)
 })
 print("Representative example: ZIP model for first genomic window")
-print(summary(ZIP[[1]]))
-
+print(summary(genotype_ZIP[[1]]))
+# Get estimates
+genotype_ZIP_estimates <- lapply(seq_along(genotype_ZIP), function(x) {
+  coef(genotype_ZIP[[x]])
+})
+# Get coefficients
+genotype_ZIP_coef <- lapply(seq_along(genotype_ZIP), function(x) {
+    coef(summary(genotype_ZIP[[x]]))
+})
+# Get P-values
+genotype_ZIP_Pvals <- sapply(seq_along(genotype_ZIP), function(x) {
+  coef(summary(genotype_ZIP[[x]]))$count[8]
+})
+# Correct for multiple testing
+genotype_ZIP_AdjPvals <- p.adjust(p = genotype_ZIP_Pvals, method = "BH")
 # Get Bayesian Information Criterion (BIC); the smaller, the better the fit
-ZIP_BIC <- sapply(seq_along(ZIP), function(x) {
-  if( !is.infinite(AIC(ZIP[[x]], k = log(length(pops_winIndCOs_list[[x]])))) ) {
-    AIC(ZIP[[x]], k = log(length(pops_winIndCOs_list[[x]])))
+genotype_ZIP_BIC <- sapply(seq_along(genotype_ZIP), function(x) {
+  if( !is.infinite(AIC(genotype_ZIP[[x]], k = log(length(pop1_matList[[1]][[x]])))) ) {
+    AIC(genotype_ZIP[[x]], k = log(length(pop1_matList[[1]][[x]])))
   } else {
     NA
   }
 })
+# Get Akaike Information Criterion (AIC); the smaller, the better the fit
+genotype_ZIP_AIC <- sapply(seq_along(genotype_ZIP), function(x) {
+  if( !is.infinite(AIC(genotype_ZIP[[x]], k = 2)) ) {
+    AIC(genotype_ZIP[[x]], k = 2)
+  } else {
+    NA
+  }
+})
+# Get 95% confidence intervals
+genotype_ZIP_CIs <- lapply(seq_along(genotype_ZIP), function(x) {
+  confint(genotype_ZIP[[x]])
+})
+
+# Evaluate model goodness-of-fit using chi-squared test based on the
+# residual deviance and degrees of freedom
+# A P-value > 0.05 indicates that the model fits the data
+#genotype_ZIP_chisqPvals <- sapply(seq_along(genotype_ZIP), function(x) {
+#  1 - pchisq(summary(genotype_ZIP[[x]])$deviance,
+#             summary(genotype_ZIP[[x]])$df.residual)
+#})
+#print(paste0("P-values from chi-squared goodness-of-fit tests evaluating Poisson regression models for ",
+#             length(genotype_ZIP), " genomic windows:"))
+#print(genotype_ZIP_chisqPvals)
+#print(paste0("Sum of P-values from chi-squared goodness-of-fit tests evaluating Poisson regression models for ",
+#             length(genotype_ZIP), " genomic windows:"))
+#print(sum(genotype_ZIP_chisqPvals))
+
 
 # Determine if Poisson BIC is lower than normal BIC (indicating better fit)
-poisson_BIC_vs_normal_BIC <- sapply(seq_along(poisson), function(x) {
-  poisson_BIC[x] < normal_BIC[x]
+genotype_poisson_BIC_vs_genotype_normal_BIC <- sapply(seq_along(genotype_poisson), function(x) {
+  genotype_poisson_BIC[x] < genotype_normal_BIC[x]
 })
-# Determine if normal BIC is NA
-normal_BIC_isNA <- sapply(seq_along(normal), function(x) {
-  is.na(normal_BIC[x])
+# Determine if genotype_normal BIC is NA
+genotype_normal_BIC_isNA <- sapply(seq_along(genotype_normal), function(x) {
+  is.na(genotype_normal_BIC[x])
 })
 print(paste0("Poisson BIC is < Normal BIC for ",
-             sum(poisson_BIC_vs_normal_BIC, na.rm = T), "/", length(poisson), " scaled windows"))
+             sum(genotype_poisson_BIC_vs_genotype_normal_BIC, na.rm = T), "/", length(genotype_poisson), " windows"))
 print(paste0("Normal BIC is NA for ",
-             sum(normal_BIC_isNA), "/", length(normal), " scaled windows"))
+             sum(genotype_normal_BIC_isNA), "/", length(genotype_normal), " scaled windows"))
 
 # Determine if Poisson BIC is lower than ZIP BIC (indicating better fit)
-poisson_BIC_vs_ZIP_BIC <- sapply(seq_along(poisson), function(x) {
-  poisson_BIC[x] < ZIP_BIC[x]
+genotype_poisson_BIC_vs_genotype_ZIP_BIC <- sapply(seq_along(genotype_poisson), function(x) {
+  genotype_poisson_BIC[x] < genotype_ZIP_BIC[x]
 })
-print(paste0("Poisson BIC is < ZIP BIC for ",
-             sum(poisson_BIC_vs_ZIP_BIC, na.rm = T), "/", length(poisson), " scaled windows"))
+print(paste0("Poisson BIC is < genotype_ZIP BIC for ",
+             sum(genotype_poisson_BIC_vs_genotype_ZIP_BIC, na.rm = T), "/", length(genotype_poisson), " windows"))
 
 # Note: negative binomial models should not be fit to these data
 # due to absence of overdispersion 
 ## N
-#negbin <- lapply(seq_along(pops_winIndCOs_list), function(x) {
+#negbin <- lapply(seq_along(pop1_matList[[1]]), function(x) {
 #  glm.nb(formula = pops_winIndCOs_list[[x]] ~ genotype,
 #         control = glm.control(maxit = 2000))
 #})
 ## Zero-inflated negative binomial regression:
-#ZINB <- lapply(seq_along(pops_winIndCOs_list), function(x) {
+#ZINB <- lapply(seq_along(pop1_matList[[1]]), function(x) {
 #  zeroinfl(formula = pops_winIndCOs_list[[x]] ~ genotype | 1,
 #           dist = "negbin")
 #})
 
-# Plot poisson_BIC vs normal_BIC
+# Plot genotype_poisson_BIC vs genotype_normal_BIC
 pdf(paste0(outDir, pop1Name, "_", pop2Name,
            "_Poisson_vs_normal_BICs_for_crossovers_",
            propName, "_of_chromosome_arms.pdf"),
@@ -373,12 +458,12 @@ pdf(paste0(outDir, pop1Name, "_", pop2Name,
 par(mfrow = c(1, 1))
 par(mar = c(4.1, 4.1, 3.1, 4.1))
 par(mgp = c(3, 1, 0))
-plot(x = 1:length(poisson_BIC), y = poisson_BIC, col = "red", type = "p", pch = 19,
+plot(x = 1:length(genotype_poisson_BIC), y = genotype_poisson_BIC, col = "red", type = "p", pch = 19,
      xlab = paste0("Scaled windows (", propName, ")"),
      ylab = "BIC",
-     ylim = c(min(poisson_BIC, normal_BIC),
-              max(poisson_BIC, normal_BIC)))
-lines(x = 1:length(poisson_BIC), y = normal_BIC, col = "blue", type = "p", pch = 19)
+     ylim = c(min(genotype_poisson_BIC, genotype_normal_BIC),
+              max(genotype_poisson_BIC, genotype_normal_BIC)))
+lines(x = 1:length(genotype_poisson_BIC), y = genotype_normal_BIC, col = "blue", type = "p", pch = 19)
 legend("top",
        legend = c("Poisson regression", "Normal linear regression"),
        col = c("red", "blue"),
@@ -387,7 +472,7 @@ legend("top",
        ncol = 1, cex = 0.7, lwd = 1.5, bty = "n")
 dev.off()
 
-# Plot poisson_AIC vs normal_AIC
+# Plot genotype_poisson_AIC vs genotype_normal_AIC
 pdf(paste0(outDir, pop1Name, "_", pop2Name,
            "_Poisson_vs_normal_AICs_for_crossovers_",
            propName, "_of_chromosome_arms.pdf"),
@@ -395,12 +480,12 @@ pdf(paste0(outDir, pop1Name, "_", pop2Name,
 par(mfrow = c(1, 1))
 par(mar = c(4.1, 4.1, 3.1, 4.1))
 par(mgp = c(3, 1, 0))
-plot(x = 1:length(poisson_AIC), y = poisson_AIC, col = "red", type = "p", pch = 19,
+plot(x = 1:length(genotype_poisson_AIC), y = genotype_poisson_AIC, col = "red", type = "p", pch = 19,
      xlab = paste0("Scaled windows (", propName, ")"),
      ylab = "AIC",
-     ylim = c(min(poisson_AIC, normal_AIC),
-              max(poisson_AIC, normal_AIC)))
-lines(x = 1:length(poisson_AIC), y = normal_AIC, col = "blue", type = "p", pch = 19)
+     ylim = c(min(genotype_poisson_AIC, genotype_normal_AIC),
+              max(genotype_poisson_AIC, genotype_normal_AIC)))
+lines(x = 1:length(genotype_poisson_AIC), y = genotype_normal_AIC, col = "blue", type = "p", pch = 19)
 legend("top",
        legend = c("Poisson regression", "Normal linear regression"),
        col = c("red", "blue"),
@@ -540,7 +625,7 @@ pop1Vpop2GenomePlot(xplot = 1:length(pop1_winIndCOs_means),
 dev.off()
 print(paste0("MannWhitneyWilcoxon_Pvals_TelCenProfiles_", pop1Name, "_vs_", pop2Name, "_", propName, "_", FDRname, ".pdf written to ", UtestPlotDir))
 
-# Plot genome profiles of normal linear regression P-values and 
+# Plot genome profiles of genotype_normal linear regression P-values and 
 # population mean crossovers per window
 pdf(file = paste0(plotDir,
                   "NormalLinearRegression_Pvals_TelCenProfiles_",
@@ -551,8 +636,8 @@ par(mar = c(4.1, 4.1, 3.1, 4.1))
 par(mgp = c(3, 1, 0))
 # Plot P-values
 minusLog10PvalPlot(xplot = 1:length(pop1_winIndCOs_means),
-                   Pvals = normal_Pvals,
-                   AdjPvals = normal_AdjPvals,
+                   Pvals = genotype_normal_Pvals,
+                   AdjPvals = genotype_normal_AdjPvals,
                    PvalsCol = "dodgerblue3",
                    AdjPvalsCol = "red")
 # Plot population mean crossovers per window
@@ -578,8 +663,8 @@ par(mar = c(4.1, 4.1, 3.1, 4.1))
 par(mgp = c(3, 1, 0))
 # Plot P-values
 minusLog10PvalPlot(xplot = 1:length(pop1_winIndCOs_means),
-                   Pvals = poisson_Pvals,
-                   AdjPvals = poisson_AdjPvals,
+                   Pvals = genotype_poisson_Pvals,
+                   AdjPvals = genotype_poisson_AdjPvals,
                    PvalsCol = "dodgerblue3",
                    AdjPvalsCol = "red")
 # Plot population mean crossovers per window
