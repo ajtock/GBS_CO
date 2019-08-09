@@ -23,7 +23,9 @@ library(GenomicRanges)
 library(parallel)
 
 matDir <- paste0("matrices/")
+plotDir <- paste0("plots/")
 system(paste0("[ -d ", matDir, " ] || mkdir ", matDir))
+system(paste0("[ -d ", plotDir, " ] || mkdir ", plotDir))
 
 # Chromosome definitions
 chrs <- c("Chr1", "Chr2", "Chr3", "Chr4", "Chr5")
@@ -72,7 +74,6 @@ SNPsGR <- GRanges(seqnames = paste0("Chr",
 		  strand = "*")
 SNPsGR <- sortSeqlevels(SNPsGR)
 SNPsGR <- sort(SNPsGR)
-SNPsGRall <- SNPsGR
 
 # For each chromosome, create sequential SNP intervals
 # and remove those with widths < the 50th percentile (median) width and
@@ -104,6 +105,20 @@ for(i in 1:length(chrs)) {
   interSNPsGR <- append(interSNPsGR, interSNPsGRchr)
 }
 
+# Find and remove inter-SNP intervals that overlap crossover intervals
+COs_interSNPs_overlap <- findOverlaps(query = COsGR,
+                                      subject = interSNPsGR,
+                                      type = "any",
+                                      select = "all",
+                                      ignore.strand = TRUE)
+if(length(COs_interSNPs_overlap) > 0) {
+  interSNPsGR <- interSNPsGR[-subjectHits(COs_interSNPs_overlap)]
+}
+## OR
+#interSNPsGR2 <- subsetByOverlaps(x = interSNPsGR,
+#                                 ranges = COsGR,
+#                                 type = "any",
+#                                 invert = TRUE)
 
 # Define function to randomly select qualifying SNP intervals from interSNPsGR,
 # with the same number per chromosome as COsGR
@@ -172,7 +187,7 @@ for(x in seq_along(COsGRflank)) {
 # Count SNPs in each window
 COsSNPcountsList <- mclapply(seq_along(COsGRflankWinGRL), function(x) {
   countOverlaps(query = COsGRflankWinGRL[[x]],
-                subject = SNPsGRall,
+                subject = SNPsGR,
                 type = "any",
                 ignore.strand = TRUE)
 }, mc.cores = detectCores())
@@ -215,7 +230,7 @@ for(x in seq_along(ranLocGRflank)) {
 # Count SNPs in each window
 ranLocSNPcountsList <- mclapply(seq_along(ranLocGRflankWinGRL), function(x) {
   countOverlaps(query = ranLocGRflankWinGRL[[x]],
-                subject = SNPsGRall,
+                subject = SNPsGR,
                 type = "any",
                 ignore.strand = TRUE)
 }, mc.cores = detectCores())
@@ -238,20 +253,74 @@ write.table(ranLocSNPcountsDF,
                           flankName, "_flank_dataframe.txt"),
             col.names = T, row.names = F, quote = F, sep = "\t")
 
-
 print(paste0(popName, " COs and ranLoc SNP frequency profile calculation complete"))
 
-pdf("test.pdf")
-plot(x = 1:201,
-     y = colMeans(COsSNPcountsDF),
-     ylim = c(min(colMeans(COsSNPcountsDF), colMeans(ranLocSNPcountsDF)),
-              max(colMeans(COsSNPcountsDF), colMeans(ranLocSNPcountsDF))),
-     type = "l",
-     col = "red",
-     lwd = 3)
-lines(x = 1:201,
-      y = colMeans(ranLocSNPcountsDF),
-      type = "l",
-      col = "grey40",
-      lwd = 3)
+# Function for plotting average SNP frequency profiles
+plotAvgSNPfreq <- function(dat1, dat2,
+                           col1, col2,
+                           mainTitle,
+                           flankSize, winSize,
+                           flankLabL1, flankLabR1,
+                           flankLabL2, flankLabR2,
+                           legendLoc, legendLabs) {
+  plot(x = 1:(((flankSize*2)+winSize)/winSize),
+       y = dat1, col = col1,
+       type = "l", lwd = 3, ann = F,
+       ylim = c(min(dat1, dat2),
+                max(dat1, dat2)),
+       xaxt = "n", yaxt = "n")
+  lines(x = 1:(((flankSize*2)+winSize)/winSize),
+        y = dat2, col = col2,
+        type = "l", lwd = 3)
+  mtext(side = 3, line = 0.5, cex = 0.8, text = mainTitle)
+  axis(side = 2, at = pretty(c(dat1, dat2)), lwd = 2, cex.axis = 0.7)
+  mtext(side = 2, line = 2.0, cex = 0.8,
+        text = bquote("SNP frequency" ~
+                      .(as.character(winSize)) ~ "bp"^-1))
+  axis(side = 1, lwd = 2,
+       at = c(1,
+              ((flankSize/winSize)/2),
+              ((flankSize+winSize)/winSize),
+              (((flankSize*2)+winSize)/winSize)-((flankSize/winSize)/2),
+              (((flankSize*2)+winSize)/winSize)),
+       labels = c("", "", "", "", ""))
+  mtext(side = 1, line = 0.5, cex = 0.7,
+        at = c(1,
+               ((flankSize/winSize)/2),
+               ((flankSize+winSize)/winSize),
+               (((flankSize*2)+winSize)/winSize)-((flankSize/winSize)/2),
+               (((flankSize*2)+winSize)/winSize)),
+        text = c(flankLabL1, flankLabL2, "Midpoint", flankLabR2, flankLabR1))  
+  abline(v = (flankSize+winSize)/winSize, lty = 3, lwd = 2)
+  box(lwd = 2)
+  legend(legendLoc,
+         legend = legendLabs,
+         col = c(col1, col2),
+         text.col = c(col1, col2),
+         text.font = c(1, 1),
+         ncol = 1, cex = 0.7, lwd = 2, bty = "n")
+}
+
+# Plot
+pdf(paste0(plotDir, popName, "_COs_and_ranLoc_SNP_frequency_",
+           flankName, "_flank", as.character(winSize), "bp_win.pdf"),
+    height = 4, width = 4.5)
+par(mar = c(2.1, 3.2, 2.1, 2.1))
+par(mgp = c(2.25, 0.75, 0))
+plotAvgSNPfreq(dat1 = colMeans(COsSNPcountsDF),
+               dat2 = colMeans(ranLocSNPcountsDF),
+               col1 = "forestgreen" ,
+               col2 = "grey50",
+               mainTitle = bquote(.(popName) ~ "(" *
+                                  .(prettyNum(dim(COsSNPcountsDF)[1],
+                                              big.mark = ",", trim = T)) *
+                                  " crossovers)"),
+               flankSize = flankSize,
+               winSize = winSize,
+               flankLabL1 = paste0("-", as.character(flankSize/1000), " kb"),
+               flankLabR1 = paste0(as.character(flankSize/1000), " kb"),
+               flankLabL2 = paste0("-", as.character((flankSize/1000)/2), " kb"),
+               flankLabR2 = paste0(as.character((flankSize/1000)/2), " kb"),
+               legendLoc = "bottomleft",
+               legendLabs = c("Crossovers", "Random"))
 dev.off()

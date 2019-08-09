@@ -139,7 +139,7 @@ pop2_winIndCOs_vars <- sapply(seq_along(pop2_winIndCOs_list), function(x) {
 })
 
 # Plot means vs variances as a quick check for overdispersion;
-# data look overdispersed with greater variances than means
+# data look overdispersed (greater variances than means)
 pdf(paste0(outDir, pop1Name, "_", pop2Name,
            "_crossover_and_ranLoc_SNP_means_vs_variances.pdf"),
     height = 10, width = 10)
@@ -360,6 +360,20 @@ print(paste0(as.character(sum(genotype_poisson_correct_predictions)),
 
 
 # Zero-inflated Poisson (ZIP) regression:
+
+# Check if ordinary Poisson model underestimates the probability of
+# zero SNPs in each window
+genotype_zobs <- sapply(seq_along(pop1_matList[[1]]), function(x) {
+  mean(c(pop1_matList[[1]][[x]], pop2_matList[[1]][[x]]) == 0)
+})
+genotype_poisson_zpr_means <- sapply(seq_along(genotype_poisson), function(x) {
+  mean(dpois(0, exp(predict(genotype_poisson[[x]]))))
+})
+print(paste0("genotype_poisson models predict fewer than observed occurrences of zero SNPs in a window for ",
+             as.character(sum(genotype_poisson_zpr_means < genotype_zobs)),
+             "/", length(genotype_zobs), " windows"))
+
+# Make ZIP model
 genotype_ZIP <- lapply(seq_along(pop1_matList[[1]]), function(x) {
   zeroinfl(formula = c(pop1_matList[[1]][[x]], pop2_matList[[1]][[x]]) ~ genotype | 1,
            dist = "poisson",
@@ -402,21 +416,58 @@ genotype_ZIP_CIs <- lapply(seq_along(genotype_ZIP), function(x) {
   confint(genotype_ZIP[[x]])
 })
 
-# Evaluate model goodness-of-fit using chi-squared test based on the
-# residual deviance and degrees of freedom
-# A P-value > 0.05 indicates that the model fits the data
-#genotype_ZIP_chisqPvals <- sapply(seq_along(genotype_ZIP), function(x) {
-#  1 - pchisq(summary(genotype_ZIP[[x]])$deviance,
-#             summary(genotype_ZIP[[x]])$df.residual)
-#})
-#print(paste0("P-values from chi-squared goodness-of-fit tests evaluating Poisson regression models for ",
-#             length(genotype_ZIP), " genomic windows:"))
-#print(genotype_ZIP_chisqPvals)
-#print(paste0("Sum of P-values from chi-squared goodness-of-fit tests evaluating Poisson regression models for ",
-#             length(genotype_ZIP), " genomic windows:"))
-#print(sum(genotype_ZIP_chisqPvals))
+# Use the model to predict mean crossover counts for each genotype
+# and corresponding standard errors
+# The model predicts the correct mean counts
+genotype_ZIP_predict <- lapply(seq_along(genotype_ZIP), function(x) {
+  cbind(data.frame(genotype = c(pop1Name, pop2Name)),
+        mean = predict(genotype_ZIP[[x]],
+                       newdata = data.frame(genotype = c(pop1Name, pop2Name)),
+                       type = "response"),
+        SE = predict(genotype_ZIP[[x]],
+                     newdata = data.frame(genotype = c(pop1Name, pop2Name)),
+                     type = "response",
+                     se.fit = TRUE)$se.fit
+       )
+})
+genotype_ZIP_correct_predictions <- sapply(seq_along(genotype_ZIP_predict), function(x) {
+  c(print(all.equal(genotype_ZIP_predict[x][[1]]$mean[1],
+                    pop1_means[[1]][x])),
+    print(all.equal(genotype_ZIP_predict[x][[1]]$mean[2],
+                    pop2_means[[1]][x])))
+})
+print(paste0(as.character(sum(genotype_ZIP_correct_predictions)),
+             "/", as.character(length(genotype_ZIP_correct_predictions))))
 
 
+# Evaluate whether model solves the problem of excess zeroes by
+# predicting π and μ, and calculate the combined probability of no SNPs
+# Use the predict() options "zero" and "count" to obtain π and μ
+genotype_ZIP_zero <- lapply(seq_along(genotype_ZIP), function(x) {
+  predict(genotype_ZIP[[x]], type = "zero") #  π
+})
+genotype_ZIP_count <- lapply(seq_along(genotype_ZIP), function(x) {
+  predict(genotype_ZIP[[x]], type = "count") # μ
+})
+genotype_ZIP_zero_count_means <- sapply(seq_along(genotype_ZIP), function(x) {
+  mean( genotype_ZIP_zero[[x]] + 
+         ( (1-genotype_ZIP_zero[[x]]) * exp(-genotype_ZIP_count[[x]]) )
+  )
+})
+print(paste0("genotype_ZIP models predict fewer than observed occurrences of zero SNPs in a window for ",
+             as.character(sum(genotype_ZIP_zero_count_means < genotype_zobs)),
+             "/", length(genotype_zobs), " windows"))
+# ZIP model accurately estimates the probability of zero SNPs in each window
+
+# Compare zero-inflated Poisson with ordinary Poisson regression model
+# using the Vuong test
+genotype_ZIP_vuong <- lapply(seq_along(genotype_ZIP), function(x) {
+  capture.output(vuong(m1 = genotype_poisson[[x]], m2 = genotype_ZIP[[x]]))
+})
+ 
+
+
+## Model comparisons
 # Determine if Poisson BIC is lower than normal BIC (indicating better fit)
 genotype_poisson_BIC_vs_genotype_normal_BIC <- sapply(seq_along(genotype_poisson), function(x) {
   genotype_poisson_BIC[x] < genotype_normal_BIC[x]
