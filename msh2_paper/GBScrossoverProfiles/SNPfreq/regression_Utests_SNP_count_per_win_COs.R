@@ -74,7 +74,6 @@ UtestPlotDir <- paste0(UtestDir, FDRname, "/")
 system(paste0("[ -d ", UtestDir, " ] || mkdir ", UtestDir))
 system(paste0("[ -d ", UtestPlotDir, " ] || mkdir ", UtestPlotDir))
 
-
 # For each population, calculate mean and variances of SNP frequencies
 # in each window along crossovers (list element [[1]]) and
 # random loci (list element [[2]])
@@ -102,41 +101,6 @@ pop2_vars <- list(as.vector(apply(X = pop2_matList[[1]],
                   as.vector(apply(X = pop2_matList[[2]],
                                   MARGIN = 2,
                                   FUN = var))) 
-
-# For pop1, create a list in which each list element (x) is a vector of
-# F2 crossover interval counts for one proportionally scaled window,
-# summed across all chromosome arms
-pop1_winIndCOs_list <- mclapply(seq_along(1:dim(pop1_indCOs_perWindow_list[[1]])[1]), function(x) {
-  windowedCOs <- NULL
-  for(y in seq_along(pop1_indCOs_perWindow_list)) {
-    windowedCOs <- c(windowedCOs, sum(pop1_indCOs_perWindow_list[[y]][x,]))
-  }
-  windowedCOs
-}, mc.cores = dim(pop1_indCOs_perWindow_list[[1]])[1])
-# For pop2, create a list in which each list element (x) is a vector of
-# F2 crossover interval counts for one window
-pop2_winIndCOs_list <- mclapply(seq_along(1:dim(pop2_indCOs_perWindow_list[[1]])[1]), function(x) {
-  windowedCOs <- NULL
-  for(y in seq_along(pop2_indCOs_perWindow_list)) {
-    windowedCOs <- c(windowedCOs, sum(pop2_indCOs_perWindow_list[[y]][x,]))
-  }
-  windowedCOs
-}, mc.cores = dim(pop2_indCOs_perWindow_list[[1]])[1])
-
-# Calculate mean crossover interval counts for each population for plotting
-pop1_winIndCOs_means <- sapply(seq_along(pop1_winIndCOs_list), function(x) {
-  mean(pop1_winIndCOs_list[[x]])
-})
-pop2_winIndCOs_means <- sapply(seq_along(pop2_winIndCOs_list), function(x) {
-  mean(pop2_winIndCOs_list[[x]])
-})
-# Calculate variance of crossover interval counts for each population
-pop1_winIndCOs_vars <- sapply(seq_along(pop1_winIndCOs_list), function(x) {
-  var(pop1_winIndCOs_list[[x]])
-})
-pop2_winIndCOs_vars <- sapply(seq_along(pop2_winIndCOs_list), function(x) {
-  var(pop2_winIndCOs_list[[x]])
-})
 
 # Plot means vs variances as a quick check for overdispersion;
 # data look overdispersed (greater variances than means)
@@ -358,6 +322,15 @@ genotype_poisson_correct_predictions <- sapply(seq_along(genotype_poisson_predic
 print(paste0(as.character(sum(genotype_poisson_correct_predictions)),
              "/", as.character(length(genotype_poisson_correct_predictions))))
 
+# Get R2 
+genotype_poisson_R2 <- sapply(seq_along(genotype_poisson), function(x) {
+  1 - (genotype_poisson[[x]]$deviance/genotype_poisson[[x]]$null.deviance)
+})
+# Get Cohen's F2 as a measure of effect size for linear regression
+genotype_poisson_F2 <- sapply(seq_along(genotype_poisson), function(x) {
+  genotype_poisson_R2[x] / (1 - genotype_poisson_R2[x])
+})
+
 
 # Zero-inflated Poisson (ZIP) regression:
 
@@ -373,7 +346,7 @@ print(paste0("genotype_poisson models predict fewer than observed occurrences of
              as.character(sum(genotype_poisson_zpr_means < genotype_zobs)),
              "/", length(genotype_zobs), " windows"))
 
-# Make ZIP model
+# Make model
 genotype_ZIP <- lapply(seq_along(pop1_matList[[1]]), function(x) {
   zeroinfl(formula = c(pop1_matList[[1]][[x]], pop2_matList[[1]][[x]]) ~ genotype | 1,
            dist = "poisson",
@@ -423,11 +396,12 @@ genotype_ZIP_predict <- lapply(seq_along(genotype_ZIP), function(x) {
   cbind(data.frame(genotype = c(pop1Name, pop2Name)),
         mean = predict(genotype_ZIP[[x]],
                        newdata = data.frame(genotype = c(pop1Name, pop2Name)),
-                       type = "response"),
-        SE = predict(genotype_ZIP[[x]],
-                     newdata = data.frame(genotype = c(pop1Name, pop2Name)),
-                     type = "response",
-                     se.fit = TRUE)$se.fit
+                       type = "response")
+         ## Doesn't work for this type of model for some reason
+#        SE = predict(genotype_ZIP[[x]],
+#                     newdata = data.frame(genotype = c(pop1Name, pop2Name)),
+#                     type = "response",
+#                     se.fit = TRUE)$se.fit
        )
 })
 genotype_ZIP_correct_predictions <- sapply(seq_along(genotype_ZIP_predict), function(x) {
@@ -436,11 +410,11 @@ genotype_ZIP_correct_predictions <- sapply(seq_along(genotype_ZIP_predict), func
     print(all.equal(genotype_ZIP_predict[x][[1]]$mean[2],
                     pop2_means[[1]][x])))
 })
-print(paste0(as.character(sum(genotype_ZIP_correct_predictions)),
-             "/", as.character(length(genotype_ZIP_correct_predictions))))
+#print(paste0(as.character(sum(genotype_ZIP_correct_predictions)),
+#             "/", as.character(length(genotype_ZIP_correct_predictions))))
 
 
-# Evaluate whether model solves the problem of excess zeroes by
+# Evaluate whether ZIP model solves the problem of excess zeroes by
 # predicting π and μ, and calculate the combined probability of no SNPs
 # Use the predict() options "zero" and "count" to obtain π and μ
 genotype_ZIP_zero <- lapply(seq_along(genotype_ZIP), function(x) {
@@ -459,12 +433,108 @@ print(paste0("genotype_ZIP models predict fewer than observed occurrences of zer
              "/", length(genotype_zobs), " windows"))
 # ZIP model accurately estimates the probability of zero SNPs in each window
 
-# Compare zero-inflated Poisson with ordinary Poisson regression model
+# Compare ZIP with ordinary Poisson regression model
 # using the Vuong test
 genotype_ZIP_vuong <- lapply(seq_along(genotype_ZIP), function(x) {
   capture.output(vuong(m1 = genotype_poisson[[x]], m2 = genotype_ZIP[[x]]))
 })
  
+
+## Zero-inflated negative binomial regression:
+# Make model
+genotype_ZINB <- mclapply(seq_along(pop1_matList[[1]]), function(x) {
+  zeroinfl(formula = c(pop1_matList[[1]][[x]], pop2_matList[[1]][[x]]) ~ genotype | 1,
+           dist = "negbin")
+}, mc.cores = detectCores())
+print("Representative example: ZINB model for first genomic window")
+print(summary(genotype_ZINB[[1]]))
+# Get estimates
+genotype_ZINB_estimates <- lapply(seq_along(genotype_ZINB), function(x) {
+  coef(genotype_ZINB[[x]])
+})
+# Get coefficients
+genotype_ZINB_coef <- lapply(seq_along(genotype_ZINB), function(x) {
+    coef(summary(genotype_ZINB[[x]]))
+})
+# Get P-values
+genotype_ZINB_Pvals <- sapply(seq_along(genotype_ZINB), function(x) {
+  coef(summary(genotype_ZINB[[x]]))$count[11]
+})
+# Correct for multiple testing
+genotype_ZINB_AdjPvals <- p.adjust(p = genotype_ZINB_Pvals, method = "BH")
+# Get Bayesian Information Criterion (BIC); the smaller, the better the fit
+genotype_ZINB_BIC <- sapply(seq_along(genotype_ZINB), function(x) {
+  if( !is.infinite(AIC(genotype_ZINB[[x]], k = log(length(pop1_matList[[1]][[x]])))) ) {
+    AIC(genotype_ZINB[[x]], k = log(length(pop1_matList[[1]][[x]])))
+  } else {
+    NA
+  }
+})
+# Get Akaike Information Criterion (AIC); the smaller, the better the fit
+genotype_ZINB_AIC <- sapply(seq_along(genotype_ZINB), function(x) {
+  if( !is.infinite(AIC(genotype_ZINB[[x]], k = 2)) ) {
+    AIC(genotype_ZINB[[x]], k = 2)
+  } else {
+    NA
+  }
+})
+# Get 95% confidence intervals
+genotype_ZINB_CIs <- lapply(seq_along(genotype_ZINB), function(x) {
+  confint(genotype_ZINB[[x]])
+})
+
+# Use the model to predict mean crossover counts for each genotype
+# and corresponding standard errors
+# The model predicts the correct mean counts
+genotype_ZINB_predict <- lapply(seq_along(genotype_ZINB), function(x) {
+  cbind(data.frame(genotype = c(pop1Name, pop2Name)),
+        mean = predict(genotype_ZINB[[x]],
+                       newdata = data.frame(genotype = c(pop1Name, pop2Name)),
+                       type = "response")
+         ## Doesn't work for this type of model for some reason
+#        SE = predict(genotype_ZINB[[x]],
+#                     newdata = data.frame(genotype = c(pop1Name, pop2Name)),
+#                     type = "response",
+#                     se.fit = TRUE)$se.fit
+       )
+})
+genotype_ZINB_correct_predictions <- sapply(seq_along(genotype_ZINB_predict), function(x) {
+  c(print(all.equal(genotype_ZINB_predict[x][[1]]$mean[1],
+                    pop1_means[[1]][x])),
+    print(all.equal(genotype_ZINB_predict[x][[1]]$mean[2],
+                    pop2_means[[1]][x])))
+})
+#print(paste0(as.character(sum(genotype_ZINB_correct_predictions)),
+#             "/", as.character(length(genotype_ZINB_correct_predictions))))
+
+
+# Evaluate whether ZINB model solves the problem of excess zeroes by
+# predicting π and μ, and calculate the combined probability of no SNPs
+# Use the predict() options "zero" and "count" to obtain π and μ
+genotype_ZINB_zero <- lapply(seq_along(genotype_ZINB), function(x) {
+  predict(genotype_ZINB[[x]], type = "zero") #  π
+})
+genotype_ZINB_count <- lapply(seq_along(genotype_ZINB), function(x) {
+  predict(genotype_ZINB[[x]], type = "count") # μ
+})
+genotype_ZINB_zero_count_means <- sapply(seq_along(genotype_ZINB), function(x) {
+  mean( genotype_ZINB_zero[[x]] + 
+         ( (1-genotype_ZINB_zero[[x]]) * exp(-genotype_ZINB_count[[x]]) )
+  )
+})
+print(paste0("genotype_ZINB models predict fewer than observed occurrences of zero SNPs in a window for ",
+             as.character(sum(genotype_ZINB_zero_count_means < genotype_zobs)),
+             "/", length(genotype_zobs), " windows"))
+# ZINB model more accurately estimates the probability of zero SNPs in each window
+# than ordinary poisson model
+
+# Compare ZINB with ZIP model
+# using the Vuong test
+genotype_ZINB_vuong <- lapply(seq_along(genotype_ZINB), function(x) {
+  capture.output(vuong(m1 = genotype_ZIP[[x]], m2 = genotype_ZINB[[x]]))
+})
+
+
 
 
 ## Model comparisons
@@ -476,7 +546,7 @@ genotype_poisson_BIC_vs_genotype_normal_BIC <- sapply(seq_along(genotype_poisson
 genotype_normal_BIC_isNA <- sapply(seq_along(genotype_normal), function(x) {
   is.na(genotype_normal_BIC[x])
 })
-print(paste0("Poisson BIC is < Normal BIC for ",
+print(paste0("genotype_poisson BIC is < Normal BIC for ",
              sum(genotype_poisson_BIC_vs_genotype_normal_BIC, na.rm = T), "/", length(genotype_poisson), " windows"))
 print(paste0("Normal BIC is NA for ",
              sum(genotype_normal_BIC_isNA), "/", length(genotype_normal), " scaled windows"))
@@ -485,8 +555,16 @@ print(paste0("Normal BIC is NA for ",
 genotype_poisson_BIC_vs_genotype_ZIP_BIC <- sapply(seq_along(genotype_poisson), function(x) {
   genotype_poisson_BIC[x] < genotype_ZIP_BIC[x]
 })
-print(paste0("Poisson BIC is < genotype_ZIP BIC for ",
+print(paste0("genotype_poisson BIC is < genotype_ZIP BIC for ",
              sum(genotype_poisson_BIC_vs_genotype_ZIP_BIC, na.rm = T), "/", length(genotype_poisson), " windows"))
+
+# Determine if ZINB BIC is lower than ZIP BIC (indicating better fit)
+genotype_ZINB_BIC_vs_genotype_ZIP_BIC <- sapply(seq_along(genotype_ZINB), function(x) {
+  genotype_ZINB_BIC[x] < genotype_ZIP_BIC[x]
+})
+print(paste0("genotype_ZINB BIC is < genotype_ZIP BIC for ",
+             sum(genotype_ZINB_BIC_vs_genotype_ZIP_BIC, na.rm = T), "/", length(genotype_ZINB), " windows"))
+
 
 # Note: negative binomial models should not be fit to these data
 # due to absence of overdispersion 
@@ -495,27 +573,24 @@ print(paste0("Poisson BIC is < genotype_ZIP BIC for ",
 #  glm.nb(formula = pops_winIndCOs_list[[x]] ~ genotype,
 #         control = glm.control(maxit = 2000))
 #})
-## Zero-inflated negative binomial regression:
-#ZINB <- lapply(seq_along(pop1_matList[[1]]), function(x) {
-#  zeroinfl(formula = pops_winIndCOs_list[[x]] ~ genotype | 1,
-#           dist = "negbin")
-#})
 
 # Plot genotype_poisson_BIC vs genotype_normal_BIC
-pdf(paste0(outDir, pop1Name, "_", pop2Name,
-           "_Poisson_vs_normal_BICs_for_crossovers_",
-           propName, "_of_chromosome_arms.pdf"),
-    height = 5, width = 5)
+pdf(paste0(outDir,
+           "genotype_poisson_vs_normal_BICs_for_SNPs_around_",
+           pop1Name, "_and_", pop2Name, "_crossovers.pdf"),
+    height = 5, width = 8)
 par(mfrow = c(1, 1))
 par(mar = c(4.1, 4.1, 3.1, 4.1))
 par(mgp = c(3, 1, 0))
 plot(x = 1:length(genotype_poisson_BIC), y = genotype_poisson_BIC, col = "red", type = "p", pch = 19,
-     xlab = paste0("Scaled windows (", propName, ")"),
+     xlab = paste0("Windows (", as.character(winSize), " bp)"),
      ylab = "BIC",
+     main = paste0("genotype regression BICs for SNPs around \n",
+                   pop1Name, " and ", pop2Name, " crossovers"),
      ylim = c(min(genotype_poisson_BIC, genotype_normal_BIC),
               max(genotype_poisson_BIC, genotype_normal_BIC)))
 lines(x = 1:length(genotype_poisson_BIC), y = genotype_normal_BIC, col = "blue", type = "p", pch = 19)
-legend("top",
+legend("bottomleft",
        legend = c("Poisson regression", "Normal linear regression"),
        col = c("red", "blue"),
        text.col = c("red", "blue"),
@@ -524,20 +599,22 @@ legend("top",
 dev.off()
 
 # Plot genotype_poisson_AIC vs genotype_normal_AIC
-pdf(paste0(outDir, pop1Name, "_", pop2Name,
-           "_Poisson_vs_normal_AICs_for_crossovers_",
-           propName, "_of_chromosome_arms.pdf"),
-    height = 5, width = 5)
+pdf(paste0(outDir,
+           "genotype_poisson_vs_normal_AICs_for_SNPs_around_",
+           pop1Name, "_and_", pop2Name, "_crossovers.pdf"),
+    height = 5, width = 8)
 par(mfrow = c(1, 1))
 par(mar = c(4.1, 4.1, 3.1, 4.1))
 par(mgp = c(3, 1, 0))
 plot(x = 1:length(genotype_poisson_AIC), y = genotype_poisson_AIC, col = "red", type = "p", pch = 19,
-     xlab = paste0("Scaled windows (", propName, ")"),
+     xlab = paste0("Windows (", as.character(winSize), " bp)"),
      ylab = "AIC",
+     main = paste0("genotype regression AICs for SNPs around \n",
+                   pop1Name, " and ", pop2Name, " crossovers"),
      ylim = c(min(genotype_poisson_AIC, genotype_normal_AIC),
               max(genotype_poisson_AIC, genotype_normal_AIC)))
 lines(x = 1:length(genotype_poisson_AIC), y = genotype_normal_AIC, col = "blue", type = "p", pch = 19)
-legend("top",
+legend("bottomleft",
        legend = c("Poisson regression", "Normal linear regression"),
        col = c("red", "blue"),
        text.col = c("red", "blue"),
@@ -545,186 +622,334 @@ legend("top",
        ncol = 1, cex = 0.7, lwd = 1.5, bty = "n")
 dev.off()
 
+# Plot genotype_poisson_BIC vs genotype_ZIP_BIC
+pdf(paste0(outDir,
+           "genotype_poisson_vs_ZIP_BICs_for_SNPs_around_",
+           pop1Name, "_and_", pop2Name, "_crossovers.pdf"),
+    height = 5, width = 8)
+par(mfrow = c(1, 1))
+par(mar = c(4.1, 4.1, 3.1, 4.1))
+par(mgp = c(3, 1, 0))
+plot(x = 1:length(genotype_poisson_BIC), y = genotype_poisson_BIC, col = "red", type = "p", pch = 19,
+     xlab = paste0("Windows (", as.character(winSize), " bp)"),
+     ylab = "BIC",
+     main = paste0("genotype regression BICs for SNPs around \n",
+                   pop1Name, " and ", pop2Name, " crossovers"),
+     ylim = c(min(genotype_poisson_BIC, genotype_ZIP_BIC),
+              max(genotype_poisson_BIC, genotype_ZIP_BIC)))
+lines(x = 1:length(genotype_poisson_BIC), y = genotype_ZIP_BIC, col = "blue", type = "p", pch = 19)
+legend("bottomleft",
+       legend = c("Poisson regression", "ZIP regression"),
+       col = c("red", "blue"),
+       text.col = c("red", "blue"),
+       text.font = c(1, 1),
+       ncol = 1, cex = 0.7, lwd = 1.5, bty = "n")
+dev.off()
+
+# Plot genotype_poisson_AIC vs genotype_ZIP_AIC
+pdf(paste0(outDir,
+           "genotype_poisson_vs_ZIP_AICs_for_SNPs_around_",
+           pop1Name, "_and_", pop2Name, "_crossovers.pdf"),
+    height = 5, width = 8)
+par(mfrow = c(1, 1))
+par(mar = c(4.1, 4.1, 3.1, 4.1))
+par(mgp = c(3, 1, 0))
+plot(x = 1:length(genotype_poisson_AIC), y = genotype_poisson_AIC, col = "red", type = "p", pch = 19,
+     xlab = paste0("Windows (", as.character(winSize), " bp)"),
+     ylab = "AIC",
+     main = paste0("genotype regression AICs for SNPs around \n",
+                   pop1Name, " and ", pop2Name, " crossovers"),
+     ylim = c(min(genotype_poisson_AIC, genotype_ZIP_AIC),
+              max(genotype_poisson_AIC, genotype_ZIP_AIC)))
+lines(x = 1:length(genotype_poisson_AIC), y = genotype_ZIP_AIC, col = "blue", type = "p", pch = 19)
+legend("bottomleft",
+       legend = c("Poisson regression", "ZIP regression"),
+       col = c("red", "blue"),
+       text.col = c("red", "blue"),
+       text.font = c(1, 1),
+       ncol = 1, cex = 0.7, lwd = 1.5, bty = "n")
+dev.off()
+
+# Plot genotype_ZINB_BIC vs genotype_ZIP_BIC
+pdf(paste0(outDir,
+           "genotype_ZINB_vs_ZIP_BICs_for_SNPs_around_",
+           pop1Name, "_and_", pop2Name, "_crossovers.pdf"),
+    height = 5, width = 8)
+par(mfrow = c(1, 1))
+par(mar = c(4.1, 4.1, 3.1, 4.1))
+par(mgp = c(3, 1, 0))
+plot(x = 1:length(genotype_ZINB_BIC), y = genotype_ZINB_BIC, col = "red", type = "p", pch = 19,
+     xlab = paste0("Windows (", as.character(winSize), " bp)"),
+     ylab = "BIC",
+     main = paste0("genotype regression BICs for SNPs around \n",
+                   pop1Name, " and ", pop2Name, " crossovers"),
+     ylim = c(min(genotype_ZINB_BIC, genotype_ZIP_BIC),
+              max(genotype_ZINB_BIC, genotype_ZIP_BIC)))
+lines(x = 1:length(genotype_ZINB_BIC), y = genotype_ZIP_BIC, col = "blue", type = "p", pch = 19)
+legend("bottomleft",
+       legend = c("ZINB regression", "ZIP regression"),
+       col = c("red", "blue"),
+       text.col = c("red", "blue"),
+       text.font = c(1, 1),
+       ncol = 1, cex = 0.7, lwd = 1.5, bty = "n")
+dev.off()
+
+# Plot genotype_ZINB_AIC vs genotype_ZIP_AIC
+pdf(paste0(outDir,
+           "genotype_ZINB_vs_ZIP_AICs_for_SNPs_around_",
+           pop1Name, "_and_", pop2Name, "_crossovers.pdf"),
+    height = 5, width = 8)
+par(mfrow = c(1, 1))
+par(mar = c(4.1, 4.1, 3.1, 4.1))
+par(mgp = c(3, 1, 0))
+plot(x = 1:length(genotype_ZINB_AIC), y = genotype_ZINB_AIC, col = "red", type = "p", pch = 19,
+     xlab = paste0("Windows (", as.character(winSize), " bp)"),
+     ylab = "AIC",
+     main = paste0("genotype regression AICs for SNPs around \n",
+                   pop1Name, " and ", pop2Name, " crossovers"),
+     ylim = c(min(genotype_ZINB_AIC, genotype_ZIP_AIC),
+              max(genotype_ZINB_AIC, genotype_ZIP_AIC)))
+lines(x = 1:length(genotype_ZINB_AIC), y = genotype_ZIP_AIC, col = "blue", type = "p", pch = 19)
+legend("bottomleft",
+       legend = c("ZINB regression", "ZIP regression"),
+       col = c("red", "blue"),
+       text.col = c("red", "blue"),
+       text.font = c(1, 1),
+       ncol = 1, cex = 0.7, lwd = 1.5, bty = "n")
+dev.off()
 
 
+# Function for plotting average SNP frequency profiles
+plotAvgSNPfreq <- function(dat1, dat2,
+                           ran1, ran2,
+                           col1, col2,
+                           mainTitle,
+                           flankSize, winSize,
+                           flankLabL1, flankLabR1,
+                           flankLabL2, flankLabR2,
+                           legendLoc, legendLabs) {
+  plot(x = 1:(((flankSize*2)+winSize)/winSize),
+       y = dat1, col = col1,
+       type = "l", lwd = 3, ann = F,
+       ylim = c(min(dat1, dat2, ran1, ran2),
+                max(dat1, dat2, ran1, ran2)),
+       xaxt = "n", yaxt = "n")
+  lines(x = 1:(((flankSize*2)+winSize)/winSize),
+        y = dat2, col = col2,
+        type = "l", lwd = 3)
+  mtext(side = 3, line = 0.5, cex = 0.8, text = mainTitle)
+  axis(side = 2, at = pretty(c(dat1, dat2, ran1, ran2)), lwd = 2, cex.axis = 0.7)
+  mtext(side = 2, line = 2.0, cex = 0.8,
+        text = bquote("SNP frequency" ~
+                      .(as.character(winSize)) ~ "bp"^-1))
+  axis(side = 1, lwd = 2,
+       at = c(1,
+              ((flankSize/winSize)/2),
+              ((flankSize+winSize)/winSize),
+              (((flankSize*2)+winSize)/winSize)-((flankSize/winSize)/2),
+              (((flankSize*2)+winSize)/winSize)),
+       labels = c("", "", "", "", ""))
+  mtext(side = 1, line = 0.5, cex = 0.7,
+        at = c(1,
+               ((flankSize/winSize)/2),
+               ((flankSize+winSize)/winSize),
+               (((flankSize*2)+winSize)/winSize)-((flankSize/winSize)/2),
+               (((flankSize*2)+winSize)/winSize)),
+        text = c(flankLabL1, flankLabL2, "Midpoint", flankLabR2, flankLabR1))
+  abline(v = (flankSize+winSize)/winSize, lty = 3, lwd = 2)
+  box(lwd = 2)
+  legend(legendLoc,
+         legend = legendLabs,
+         col = c(col1, col2),
+         text.col = c(col1, col2),
+         text.font = c(1, 1),
+         ncol = 1, cex = 0.7, lwd = 2, bty = "n")
+}
 
-# Perfom Mann–Whitney–Wilcoxon tests comparing pop1Name and pop2Name COs
-# in each genomic window
-Utests <- lapply(seq_along(pop1_winIndCOs_list), function(x) {
-  wilcox.test(x = pop1_winIndCOs_list[[x]],
-              y = pop2_winIndCOs_list[[x]],
-              alternative = "two.sided")
-})
-UtestPvals <- sapply(seq_along(Utests), function(x) {
-  Utests[[x]]$p.val
-})
-
-# Adjust P-values by applying the Benjamini-Hochberg multiple testing correction
-UtestAdjPvals <- p.adjust(p = UtestPvals, method = "BH")
-
-
-# Function to plot TEL-CEN profile of -log10-transformed P-values and adjusted P-values
-minusLog10PvalPlot <- function(xplot,
-                               Pvals, PvalsCol,
-                               AdjPvals, AdjPvalsCol) {
-  plot(x = xplot, y = -log10(Pvals), col = PvalsCol, type = "l", lwd = 1.5,
+# Function to plot profile of -log10-transformed P-values and adjusted P-values
+minusLog10PvalPlot <- function(Pvals, AdjPvals,
+                               PvalsCol, AdjPvalsCol,
+                               mainTitle,
+                               flankSize, winSize,
+                               flankLabL1, flankLabR1,
+                               flankLabL2, flankLabR2) {
+  plot(x = 1:(((flankSize*2)+winSize)/winSize),
+       y = -log10(Pvals), col = PvalsCol,
+       type = "l", lwd = 3, ann = F,
        ylim = c(0,
                 pmax(-log10(0.05), max(-log10(Pvals), na.rm = T))),
-       xlab = "", ylab = "",
-       xaxt = "n", yaxt = "n",
-       main = "")
-  mtext(side = 2, line = 2.25, cex = 1, col = PvalsCol,
+       xaxt = "n", yaxt = "n")
+  mtext(side = 3, line = 0.5, cex = 0.8, text = mainTitle)
+  mtext(side = 2, line = 2.0, cex = 0.8, col = PvalsCol,
         text = bquote("-Log"[10]*"("*italic("P")*"-value)"))
-  axis(side = 2, cex.axis = 1, lwd.tick = 1.5)
-  abline(h = -log10(0.05), lty = 5, lwd = 1, col = PvalsCol)
-
+  axis(side = 2, cex.axis = 0.7, lwd = 2)
+  abline(h = -log10(0.05), lty = 5, lwd = 2, col = PvalsCol)
   par(new = T)
-  plot(x = xplot, y = -log10(AdjPvals), col = AdjPvalsCol, type = "l", lwd = 1.5,
+  plot(x = 1:(((flankSize*2)+winSize)/winSize),
+       y = -log10(AdjPvals), col = AdjPvalsCol,
+       type = "l", lwd = 3,
        ylim = c(0,
                 pmax(-log10(FDR), max(-log10(AdjPvals), na.rm = T))),
        xlab = "", ylab = "",
        xaxt = "n", yaxt = "n",
-       main = bquote(.(pop1Name)*" versus "*.(pop2Name)*" crossover counts"),
+       main = "",
        cex.main = 1)
   p <- par('usr')
-  text(p[2], mean(p[3:4]), cex = 1, adj = c(0.5, -3.0), xpd = NA, srt = -90, col = AdjPvalsCol,
+  text(p[2], mean(p[3:4]), cex = 1, adj = c(0.5, -2.5), xpd = NA, srt = -90, col = AdjPvalsCol,
        labels = bquote("-Log"[10]*"(BH-adjusted "*italic("P")*"-value)"))
-  axis(side = 4, cex.axis = 1, lwd.tick = 1.5)
-  if(prop <= 15) {
-    axis(side = 1, cex.axis = 1, lwd.tick = 1.5,
-         at = c(1, seq(2, prop, by = 1)),
-         labels = c(expression(italic("TEL")),
-                    seq(2, prop-1, by = 1),
-                    expression(italic("CEN"))))
-  } else {
-    axis(side = 1, cex.axis = 1, lwd.tick = 1.5,
-         at = c(1, pretty(1:length(xplot))[2:(length(pretty(1:length(xplot)))-1)], prop),
-         labels = c(expression(italic("TEL")),
-                    pretty(1:length(xplot))[2:(length(pretty(1:length(xplot)))-1)],
-                    expression(italic("CEN"))))
-  }
-  mtext(side = 1, line = 2.25, cex = 1, text = paste0("Scaled windows (", propName, ")"))
-  abline(h = -log10(FDR), lty = 5, lwd = 1, col = AdjPvalsCol)
-
-  box(lwd = 1.5)
+  axis(side = 4, cex.axis = 0.7, lwd = 2)
+  abline(h = -log10(0.1), lty = 5, lwd = 2, col = AdjPvalsCol)
+  axis(side = 1, lwd = 2,
+       at = c(1,
+              ((flankSize/winSize)/2),
+              ((flankSize+winSize)/winSize),
+              (((flankSize*2)+winSize)/winSize)-((flankSize/winSize)/2),
+              (((flankSize*2)+winSize)/winSize)),
+       labels = c("", "", "", "", ""))
+  mtext(side = 1, line = 0.5, cex = 0.7,
+        at = c(1,
+               ((flankSize/winSize)/2),
+               ((flankSize+winSize)/winSize),
+               (((flankSize*2)+winSize)/winSize)-((flankSize/winSize)/2),
+               (((flankSize*2)+winSize)/winSize)),
+        text = c(flankLabL1, flankLabL2, "Midpoint", flankLabR2, flankLabR1))
+  abline(v = (flankSize+winSize)/winSize, lty = 3, lwd = 2)
+  box(lwd = 2)
 }
 
-# Function to plot TEL-CEN profile of windowed pop1 vs pop2 crossovers (one Y-axis) 
-pop1Vpop2GenomePlot <- function(xplot,
-                                pop1, pop1Col,
-                                pop2, pop2Col,
-                                Ylabel,
-                                legendLoc,
-                                legendLabs) {
-  plot(xplot, pop1, type = "l", lwd = 1.5, col = pop1Col,
+# Function to plot profile of -log10-transformed adjusted P-values and estimates
+minusLog10AdjPvalEstimatePlot <- function(AdjPvals, ests,
+                                          AdjPvalsCol, estsCol,
+                                          mainTitle,
+                                          flankSize, winSize,
+                                          flankLabL1, flankLabR1,
+                                          flankLabL2, flankLabR2) {
+  plot(x = 1:(((flankSize*2)+winSize)/winSize),
+       y = -log10(AdjPvals), col = AdjPvalsCol,
+       type = "l", lwd = 3, ann = F,
        ylim = c(0,
-                max(c(pop1, pop2))),
+                pmax(-log10(0.05), max(-log10(AdjPvals), na.rm = T))),
+       xaxt = "n", yaxt = "n")
+  mtext(side = 3, line = 0.5, cex = 0.8, text = mainTitle)
+  mtext(side = 2, line = 2.0, cex = 0.8, col = AdjPvalsCol,
+        text = bquote("-Log"[10]*"(BH-adjusted "*italic("P")*"-value)"))
+  axis(side = 2, cex.axis = 0.7, lwd = 2)
+  abline(h = -log10(0.1), lty = 5, lwd = 2, col = AdjPvalsCol)
+  par(new = T)
+  plot(x = 1:(((flankSize*2)+winSize)/winSize),
+       y = ests, col = estsCol,
+       type = "l", lwd = 3,
+       ylim = c(min(ests), max(ests)),
        xlab = "", ylab = "",
        xaxt = "n", yaxt = "n",
-       main = bquote(italic("r"[s]) ~ " = " ~ .(round(cor(pop1, pop2, method = "spearman", use = "pairwise.complete.obs"), digits = 2))))
-  lines(xplot, pop2, type = "l", lwd = 1.5, col = pop2Col)
-  if(prop <= 15) {
-    axis(side = 1, cex.axis = 1, lwd.tick = 1.5,
-         at = c(1, seq(2, prop, by = 1)),
-         labels = c(expression(italic("TEL")),
-                    seq(2, prop-1, by = 1),
-                    expression(italic("CEN"))))
-  } else {
-    axis(side = 1, cex.axis = 1, lwd.tick = 1.5,
-         at = c(1, pretty(1:length(xplot))[2:(length(pretty(1:length(xplot)))-1)], prop),
-         labels = c(expression(italic("TEL")),
-                    pretty(1:length(xplot))[2:(length(pretty(1:length(xplot)))-1)],
-                    expression(italic("CEN"))))
-  }
-  mtext(side = 1, line = 2.25, cex = 1, text = paste0("Scaled windows (", propName, ")"))
-  axis(side = 2, cex.axis = 1, lwd.tick = 1.5)
-  mtext(side = 2, line = 2.25, cex = 1, text = Ylabel, col = "black")
-  box(lwd = 1.5)
-  legend(legendLoc,
-         legend = legendLabs,
-         col = c(pop1Col, pop2Col),
-         text.col = c(pop1Col, pop2Col),
-         text.font = c(1, 1),
-         ncol = 1, cex = 0.7, lwd = 1.5, bty = "n")
+       main = "",
+       cex.main = 1)
+  p <- par('usr')
+  text(p[2], mean(p[3:4]), cex = 1, adj = c(0.5, -3), xpd = NA, srt = -90, col = estsCol,
+       labels = bquote("Effect size estimates"))
+  axis(side = 4, cex.axis = 0.7, lwd = 2)
+  axis(side = 1, lwd = 2,
+       at = c(1,
+              ((flankSize/winSize)/2),
+              ((flankSize+winSize)/winSize),
+              (((flankSize*2)+winSize)/winSize)-((flankSize/winSize)/2),
+              (((flankSize*2)+winSize)/winSize)),
+       labels = c("", "", "", "", ""))
+  mtext(side = 1, line = 0.5, cex = 0.7,
+        at = c(1,
+               ((flankSize/winSize)/2),
+               ((flankSize+winSize)/winSize),
+               (((flankSize*2)+winSize)/winSize)-((flankSize/winSize)/2),
+               (((flankSize*2)+winSize)/winSize)),
+        text = c(flankLabL1, flankLabL2, "Midpoint", flankLabR2, flankLabR1))
+  abline(v = (flankSize+winSize)/winSize, lty = 3, lwd = 2)
+  box(lwd = 2)
 }
 
+# Get estimates
+genotype_ZINB_estimates_vector <- sapply(seq_along(genotype_ZINB_estimates), function(x) {
+  genotype_ZINB_estimates[[x]][[2]]
+})
 
-# Plot genome profiles of U-test P-values and 
-# population mean crossovers per window
-pdf(file = paste0(UtestPlotDir,
-                  "MannWhitneyWilcoxon_Pvals_TelCenProfiles_",
-                  pop1Name, "_vs_", pop2Name, "_", propName, "_", FDRname, ".pdf"),
-    height = 7, width = 7)
-par(mfrow = c(2, 1))
-par(mar = c(4.1, 4.1, 3.1, 4.1))
-par(mgp = c(3, 1, 0))
-# Plot P-values
-minusLog10PvalPlot(xplot = 1:length(pop1_winIndCOs_means),
-                   Pvals = UtestPvals,
-                   AdjPvals = UtestAdjPvals,
-                   PvalsCol = "dodgerblue3",
-                   AdjPvalsCol = "red")
-# Plot population mean crossovers per window
-pop1Vpop2GenomePlot(xplot = 1:length(pop1_winIndCOs_means),
-                    pop1 = pop1_winIndCOs_means,
-                    pop2 = pop2_winIndCOs_means,
-                    Ylabel = "Population mean crossovers",
-                    legendLoc = "top",
-                    legendLabs = c(pop1Name, pop2Name),
-                    pop1Col = "grey50",
-                    pop2Col = "forestgreen")
+# Plot
+pdf(paste0(plotDir, "SNP_frequency_around_", pop1Name, "_v_", pop2Name,
+           "_crossovers_and_ranLoc_",
+           flankName, "_flank", as.character(winSize), "bp_win.pdf"),
+    height = 8, width = 9)
+par(mfcol = c(2, 2))
+par(mar = c(2.1, 3.2, 2.1, 3.2))
+par(mgp = c(2.25, 0.75, 0))
+plotAvgSNPfreq(dat1 = colMeans(pop1_matList[[1]]),
+               dat2 = colMeans(pop1_matList[[2]]),
+               ran1 = colMeans(pop2_matList[[1]]),
+               ran2 = colMeans(pop2_matList[[2]]),
+               col1 = "forestgreen",
+               col2 = "grey50",
+               mainTitle = bquote("SNP frequency around"~.(pop1Name)~
+                                  "crossovers and random loci"),
+               flankSize = flankSize,
+               winSize = winSize,
+               flankLabL1 = paste0("-", as.character(flankSize/1000), " kb"),
+               flankLabR1 = paste0(as.character(flankSize/1000), " kb"),
+               flankLabL2 = paste0("-", as.character((flankSize/1000)/2), " kb"),
+               flankLabR2 = paste0(as.character((flankSize/1000)/2), " kb"),
+               legendLoc = "bottomleft",
+               legendLabs = c("Crossovers", "Random"))
+plotAvgSNPfreq(dat1 = colMeans(pop2_matList[[1]]),
+               dat2 = colMeans(pop2_matList[[2]]),
+               ran1 = colMeans(pop1_matList[[1]]),
+               ran2 = colMeans(pop1_matList[[2]]),
+               col1 = "magenta3",
+               col2 = "grey30",
+               mainTitle = bquote("SNP frequency around"~.(pop2Name)~
+                                  "crossovers and random loci"),
+               flankSize = flankSize,
+               winSize = winSize,
+               flankLabL1 = paste0("-", as.character(flankSize/1000), " kb"),
+               flankLabR1 = paste0(as.character(flankSize/1000), " kb"),
+               flankLabL2 = paste0("-", as.character((flankSize/1000)/2), " kb"),
+               flankLabR2 = paste0(as.character((flankSize/1000)/2), " kb"),
+               legendLoc = "bottomleft",
+               legendLabs = c("Crossovers", "Random"))
+plotAvgSNPfreq(dat1 = colMeans(pop1_matList[[1]]),
+               dat2 = colMeans(pop2_matList[[1]]),
+               ran1 = colMeans(pop1_matList[[2]]),
+               ran2 = colMeans(pop2_matList[[2]]),
+               col1 = "forestgreen",
+               col2 = "magenta3",
+               mainTitle = bquote("SNP frequency around"~.(pop1Name)~
+                                  "vs"~.(pop2Name)*" crossovers"),
+               flankSize = flankSize,
+               winSize = winSize,
+               flankLabL1 = paste0("-", as.character(flankSize/1000), " kb"),
+               flankLabR1 = paste0(as.character(flankSize/1000), " kb"),
+               flankLabL2 = paste0("-", as.character((flankSize/1000)/2), " kb"),
+               flankLabR2 = paste0(as.character((flankSize/1000)/2), " kb"),
+               legendLoc = "bottomleft",
+               legendLabs = c(pop1Name, pop2Name))
+minusLog10AdjPvalEstimatePlot(AdjPvals = genotype_ZINB_AdjPvals,
+                              ests = genotype_ZINB_estimates_vector,
+                              AdjPvalsCol = "red",
+                              estsCol = "dodgerblue3",
+                              mainTitle = bquote("SNP frequency around"~.(pop1Name)~
+                                                 "vs"~.(pop2Name)*" crossovers"),
+                              flankSize = flankSize,
+                              winSize = winSize,
+                              flankLabL1 = paste0("-", as.character(flankSize/1000), " kb"),
+                              flankLabR1 = paste0(as.character(flankSize/1000), " kb"),
+                              flankLabL2 = paste0("-", as.character((flankSize/1000)/2), " kb"),
+                              flankLabR2 = paste0(as.character((flankSize/1000)/2), " kb"))
+#minusLog10PvalPlot(Pvals = genotype_ZINB_Pvals,
+#                   AdjPvals = genotype_ZINB_AdjPvals,
+#                   PvalsCol = "dodgerblue3",
+#                   AdjPvalsCol = "red",
+#                   mainTitle = bquote("SNP frequency around"~.(pop1Name)~
+#                                  "vs"~.(pop2Name)*" crossovers"),
+#                   flankSize = flankSize,
+#                   winSize = winSize,
+#                   flankLabL1 = paste0("-", as.character(flankSize/1000), " kb"),
+#                   flankLabR1 = paste0(as.character(flankSize/1000), " kb"),
+#                   flankLabL2 = paste0("-", as.character((flankSize/1000)/2), " kb"),
+#                   flankLabR2 = paste0(as.character((flankSize/1000)/2), " kb"))
 dev.off()
-print(paste0("MannWhitneyWilcoxon_Pvals_TelCenProfiles_", pop1Name, "_vs_", pop2Name, "_", propName, "_", FDRname, ".pdf written to ", UtestPlotDir))
 
-# Plot genome profiles of genotype_normal linear regression P-values and 
-# population mean crossovers per window
-pdf(file = paste0(plotDir,
-                  "NormalLinearRegression_Pvals_TelCenProfiles_",
-                  pop1Name, "_vs_", pop2Name, "_", propName, "_", FDRname, ".pdf"),
-    height = 7, width = 7)
-par(mfrow = c(2, 1))
-par(mar = c(4.1, 4.1, 3.1, 4.1))
-par(mgp = c(3, 1, 0))
-# Plot P-values
-minusLog10PvalPlot(xplot = 1:length(pop1_winIndCOs_means),
-                   Pvals = genotype_normal_Pvals,
-                   AdjPvals = genotype_normal_AdjPvals,
-                   PvalsCol = "dodgerblue3",
-                   AdjPvalsCol = "red")
-# Plot population mean crossovers per window
-pop1Vpop2GenomePlot(xplot = 1:length(pop1_winIndCOs_means),
-                    pop1 = pop1_winIndCOs_means,
-                    pop2 = pop2_winIndCOs_means,
-                    Ylabel = "Population mean crossovers",
-                    legendLoc = "top",
-                    legendLabs = c(pop1Name, pop2Name),
-                    pop1Col = "grey50",
-                    pop2Col = "forestgreen")
-dev.off()
-print(paste0("NormalLinearRegression_Pvals_TelCenProfiles_", pop1Name, "_vs_", pop2Name, "_", propName, "_", FDRname, ".pdf written to ", plotDir))
-
-# Plot genome profiles of Poisson regression P-values and 
-# population mean crossovers per window
-pdf(file = paste0(plotDir,
-                  "PoissonRegression_Pvals_TelCenProfiles_",
-                  pop1Name, "_vs_", pop2Name, "_", propName, "_", FDRname, ".pdf"),
-    height = 7, width = 7)
-par(mfrow = c(2, 1))
-par(mar = c(4.1, 4.1, 3.1, 4.1))
-par(mgp = c(3, 1, 0))
-# Plot P-values
-minusLog10PvalPlot(xplot = 1:length(pop1_winIndCOs_means),
-                   Pvals = genotype_poisson_Pvals,
-                   AdjPvals = genotype_poisson_AdjPvals,
-                   PvalsCol = "dodgerblue3",
-                   AdjPvalsCol = "red")
-# Plot population mean crossovers per window
-pop1Vpop2GenomePlot(xplot = 1:length(pop1_winIndCOs_means),
-                    pop1 = pop1_winIndCOs_means,
-                    pop2 = pop2_winIndCOs_means,
-                    Ylabel = "Population mean crossovers",
-                    legendLoc = "top",
-                    legendLabs = c(pop1Name, pop2Name),
-                    pop1Col = "grey50",
-                    pop2Col = "forestgreen")
-dev.off()
