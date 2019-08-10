@@ -244,6 +244,15 @@ genotype_normal_correct_predictions <- sapply(seq_along(genotype_normal_predict)
 print(paste0(as.character(sum(genotype_normal_correct_predictions)),
              "/", as.character(length(genotype_normal_correct_predictions))))
 
+# Get R2 
+genotype_normal_R2 <- sapply(seq_along(genotype_normal), function(x) {
+  1 - (genotype_normal[[x]]$deviance/genotype_normal[[x]]$null.deviance)
+})
+# Get Cohen's F2 as a measure of effect size for linear regression
+genotype_normal_F2 <- sapply(seq_along(genotype_normal), function(x) {
+  genotype_normal_R2[x] / (1 - genotype_normal_R2[x])
+})
+
 
 # Poisson regression:
 genotype_poisson <- lapply(seq_along(pop1_matList[[1]]), function(x) {
