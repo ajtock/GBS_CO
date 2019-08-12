@@ -4,12 +4,12 @@
 # midpoints of CO intervals and random loci
 
 # Usage via Condor submission system on node7:
-# csmit -m 20G -c 1 "/applications/R/R-3.5.0/bin/Rscript ./crossover_SNPfreq_profiles_commandArgs_mid2SNPs_minWidth.R 5000 5kb 50 50bp coller.filtarb collerF2.complete.tiger.txt"
+# csmit -m 20G -c 1 "/applications/R/R-3.5.0/bin/Rscript ./crossover_SNPfreq_profiles_commandArgs_mid2SNPs_interveningSNPs.R 5000 5kb 200 200bp coller.filtarb collerF2.complete.tiger.txt"
 
 #flankSize <- 5000
 #flankName <- "5kb"
-#winSize <- 50
-#winName <- "50bp"
+#winSize <- 200
+#winName <- "200bp"
 #popName <- "coller.filtarb"
 #SNPsFile <- "collerF2.complete.tiger.txt"
 
@@ -79,34 +79,56 @@ SNPsGR <- GRanges(seqnames = paste0("Chr",
 SNPsGR <- sortSeqlevels(SNPsGR)
 SNPsGR <- sort(SNPsGR)
 
-# For each chromosome, create sequential SNP intervals
-# and remove those with widths < the 50th percentile (median) width and
-# > the max width of crossover intervals for that chromosome
-interSNPsGR <- GRanges()
+# For each chromosome, remove potential SNP-interval-start-defining SNPs
+# that are too close to chromosome starts and ends
+# (i.e., those within flankSize of chromosome starts, and
+# those within flankSize + double the maximum crossover width for that chromosome),
+# and remove potential SNP-interval-end-defining SNPs
+# that are too close to chromosome starts and ends
+# (i.e., those within flankSize of chromosome starts and ends)
+# Also remove those which, after extension to maximum crossover interval width
+# for that chromosome, overlap crossover intervals
+qualStartSNPsGR <- GRanges()
+qualEndSNPsGR <- GRanges()
 for(i in 1:length(chrs)) {
   COsGRchr <- COsGR[seqnames(COsGR) == chrs[i]]
   SNPsGRchr <- SNPsGR[seqnames(SNPsGR) == chrs[i]]
-  interSNPsGRchr <- GRanges(seqnames = chrs[i],
-                            ranges = IRanges(start = start(SNPsGRchr[1:(length(SNPsGRchr)-1)]),
-                                             end = start(SNPsGRchr[2:(length(SNPsGRchr))])),
-                            strand = "*")
-  interSNPsGRchr <- interSNPsGRchr[width(interSNPsGRchr) >= quantile(width(COsGRchr), 0.50)[[1]] &
-                                   width(interSNPsGRchr) <= max(width(COsGRchr))]
-  interSNPsGRchr$midpoint <- start(interSNPsGRchr) +
-                               (round(0.5 * ((end(interSNPsGRchr) - start(interSNPsGRchr)) + 1)))
-  # Remove SNP intervals too close to chromosome starts and ends
-  # [i.e., those whose midpoints are within flankSize + (0.5*winSize)
-  # of chromosome starts and ends]
-  # (0.5*winSize) represents half of the midpoint-window within which,
-  # and around which, SNPs will be counted
-  interSNPsGRchr <- interSNPsGRchr[( interSNPsGRchr$midpoint >
-                                       flankSize +
-                                       (0.5*winSize) ) &
-                                   ( interSNPsGRchr$midpoint <
-                                       chrLens[i] -
-                                       flankSize -
-                                       (0.5*winSize) )]
-  interSNPsGR <- append(interSNPsGR, interSNPsGRchr)
+  qualStartSNPsGRchr <- SNPsGRchr[( start(SNPsGRchr) >
+                                      flankSize ) &
+                                  ( start(SNPsGRchr) <
+                                      (chrLens[i] - flankSize - (max(width(COsGRchr))*2)) )]
+  qualEndSNPsGRchr <- SNPsGRchr[( start(SNPsGRchr) >
+                                    flankSize ) &
+                                ( start(SNPsGRchr) <
+                                    (chrLens[i] - flankSize) )]
+  qualStartSNPsGRchrPseudo <- GRanges(seqnames = seqnames(qualStartSNPsGRchr),
+                                      ranges = IRanges(start = start(qualStartSNPsGRchr),
+                                                       end = start(qualStartSNPsGRchr) +
+                                                             max(width(COsGRchr)) - 1),
+                                      strand = "*")
+  qualEndSNPsGRchrPseudo <- GRanges(seqnames = seqnames(qualEndSNPsGRchr),
+                                    ranges = IRanges(start = start(qualEndSNPsGRchr) -
+                                                             max(width(COsGRchr)) + 1,
+                                                     end = start(qualEndSNPsGRchr)),
+                                    strand = "*")
+  qualStartSNPsGRchrPseudo <- subsetByOverlaps(x = qualStartSNPsGRchrPseudo,
+                                               ranges = COsGRchr,
+                                               type = "any",
+                                               invert = TRUE) 
+  qualEndSNPsGRchrPseudo <- subsetByOverlaps(x = qualEndSNPsGRchrPseudo,
+                                             ranges = COsGRchr,
+                                             type = "any",
+                                             invert = TRUE)
+  qualStartSNPsGRchr <- GRanges(seqnames = seqnames(qualStartSNPsGRchrPseudo),
+                                ranges = IRanges(start = start(qualStartSNPsGRchrPseudo),
+                                                 end = start(qualStartSNPsGRchrPseudo)),
+                                strand = "*")
+  qualEndSNPsGRchr <- GRanges(seqnames = seqnames(qualEndSNPsGRchrPseudo),
+                              ranges = IRanges(start = end(qualEndSNPsGRchrPseudo),
+                                               end = end(qualEndSNPsGRchrPseudo)),
+                              strand = "*")
+  qualStartSNPsGR <- append(qualStartSNPsGR, qualStartSNPsGRchr)
+  qualEndSNPsGR <- append(qualEndSNPsGR, qualEndSNPsGRchr)
 }
 
 # Find and remove inter-SNP intervals that overlap crossover intervals
@@ -124,7 +146,7 @@ if(length(COs_interSNPs_overlap) > 0) {
 #                                 type = "any",
 #                                 invert = TRUE)
 
-# Define function to randomly select qualifying SNP intervals from interSNPsGR,
+# Define function to randomly select qualifying SNPs from SNPsGR,
 # with the same number per chromosome as COsGR
 ranLocSelect <- function(coordinates, n) {
   sample(x = coordinates,
