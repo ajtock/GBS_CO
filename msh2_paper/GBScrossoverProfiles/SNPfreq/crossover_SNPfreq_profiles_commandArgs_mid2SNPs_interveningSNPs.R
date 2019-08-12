@@ -111,14 +111,18 @@ for(i in 1:length(chrs)) {
                                                              max(width(COsGRchr)) + 1,
                                                      end = start(qualEndSNPsGRchr)),
                                     strand = "*")
-  qualStartSNPsGRchrPseudo <- subsetByOverlaps(x = qualStartSNPsGRchrPseudo,
-                                               ranges = COsGRchr,
-                                               type = "any",
-                                               invert = TRUE) 
-  qualEndSNPsGRchrPseudo <- subsetByOverlaps(x = qualEndSNPsGRchrPseudo,
-                                             ranges = COsGRchr,
-                                             type = "any",
-                                             invert = TRUE)
+  COs_qualStartSNPs_overlap <- findOverlaps(query = COsGRchr,
+                                            subject = qualStartSNPsGRchrPseudo,
+                                            type = "any",
+                                            select = "all",
+                                            ignore.strand = TRUE)
+  qualStartSNPsGRchrPseudo <- qualStartSNPsGRchrPseudo[-subjectHits(COs_qualStartSNPs_overlap)]
+  COs_qualEndSNPs_overlap <- findOverlaps(query = COsGRchr,
+                                          subject = qualEndSNPsGRchrPseudo,
+                                          type = "any",
+                                          select = "all",
+                                          ignore.strand = TRUE)
+  qualEndSNPsGRchrPseudo <- qualEndSNPsGRchrPseudo[-subjectHits(COs_qualEndSNPs_overlap)]
   qualStartSNPsGRchr <- GRanges(seqnames = seqnames(qualStartSNPsGRchrPseudo),
                                 ranges = IRanges(start = start(qualStartSNPsGRchrPseudo),
                                                  end = start(qualStartSNPsGRchrPseudo)),
@@ -131,23 +135,8 @@ for(i in 1:length(chrs)) {
   qualEndSNPsGR <- append(qualEndSNPsGR, qualEndSNPsGRchr)
 }
 
-# Find and remove inter-SNP intervals that overlap crossover intervals
-COs_interSNPs_overlap <- findOverlaps(query = COsGR,
-                                      subject = interSNPsGR,
-                                      type = "any",
-                                      select = "all",
-                                      ignore.strand = TRUE)
-if(length(COs_interSNPs_overlap) > 0) {
-  interSNPsGR <- interSNPsGR[-subjectHits(COs_interSNPs_overlap)]
-}
-## OR
-#interSNPsGR2 <- subsetByOverlaps(x = interSNPsGR,
-#                                 ranges = COsGR,
-#                                 type = "any",
-#                                 invert = TRUE)
-
-# Define function to randomly select qualifying SNPs from SNPsGR,
-# with the same number per chromosome as COsGR
+# Define function to randomly select SNP-interval-start-defining SNPs from
+# qualStartSNPsGRchr, with the same number per chromosome as COsGR
 ranLocSelect <- function(coordinates, n) {
   sample(x = coordinates,
          size = n,
@@ -162,13 +151,40 @@ set.seed(93750174)
 
 # Apply ranLocSelect() on a per-chromosome basis so that
 # ranLocGR contains the same number of loci per chromosome as COsGR
+# First randomly select start coordinates from start(qualStartSNPsGRchr),
+# then define pseudo end coordinates based on COsGRchr widths,
+# then move end coordinates to nearest start(qualEndSNPsGRchr) that is
+# greater than the start coordinate randomly selected for a given locus
 ranLocGR <- GRanges()
 for(i in 1:length(chrs)) {
-  interSNPsGRchr <- interSNPsGR[seqnames(interSNPsGR) == chrs[i]]
+  print(i)
   COsGRchr <- COsGR[seqnames(COsGR) == chrs[i]]
-  ranLocChrGR <- ranLocSelect(coordinates = interSNPsGRchr,
+  qualStartSNPsGRchr <- qualStartSNPsGR[seqnames(qualStartSNPsGR) == chrs[i]]
+  qualEndSNPsGRchr <- qualEndSNPsGR[seqnames(qualEndSNPsGR) == chrs[i]]
+  ranLocStart <- ranLocSelect(coordinates = start(qualStartSNPsGRchr),
                               n = length(COsGRchr))
-  ranLocGR <- append(ranLocGR, ranLocChrGR)
+  ranLocGRchrPseudo <- GRanges(seqnames = chrs[i],
+                               ranges = IRanges(start = ranLocStart,
+                                                width = width(COsGRchr)),
+                               strand = "*")
+  ranLocEnd <- NULL
+  for(x in 1:length(ranLocGRchrPseudo)) {
+    print(x)
+    qualEndSNPsGRchrx <- qualEndSNPsGRchr[start(qualEndSNPsGRchr) >
+                                          start(ranLocGRchrPseudo[x])]
+    ranLocEndxGR <- qualEndSNPsGRchrx[abs( start(qualEndSNPsGRchrx) -
+                                           end(ranLocGRchrPseudo[x]) ) ==
+                                      min(abs( start(qualEndSNPsGRchrx) -
+                                               end(ranLocGRchrPseudo[x]) ))]
+    ranLocEndx <- start(ranLocEndxGR[1])
+    ranLocEnd <- c(ranLocEnd, ranLocEndx)
+  }
+  print(i)
+  ranLocGRchr <- GRanges(seqnames = chrs[i],
+                         ranges = IRanges(start = ranLocStart,
+                                          end = ranLocEnd),
+                         strand = "*") 
+  ranLocGR <- append(ranLocGR, ranLocGRchr)
 }
 print(range(width(COsGR)))
 print(range(width(ranLocGR)))
@@ -180,6 +196,8 @@ start(COsGRflank) <- COsGR$midpoint -
 end(COsGRflank) <- COsGR$midpoint +
                      (0.5*winSize) + flankSize
 # Create ranLocGRflank
+ranLocGR$midpoint <- start(ranLocGR) +
+                       (round(0.5 * ((end(ranLocGR) - start(ranLocGR)) + 1)))
 ranLocGRflank <- ranLocGR
 start(ranLocGRflank) <- ranLocGR$midpoint -
                           ((0.5*winSize)-1) - flankSize

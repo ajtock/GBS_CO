@@ -15,7 +15,7 @@
 # https://data.princeton.edu/wws509/r/overdispersion
 
 # Usage from within directory containing windowed CO counts files:
-# ./regression_SNP_count_per_win_COs.R coller.filtarb coller.filtmsh2 5000 5kb 50 50bp 0.1
+# ./regression_SNP_count_per_win_COs.R coller.filtarb coller.filtmsh2 5000 5kb 200 200bp 0.1
 
 # Some of these packages may not already be installed
 # e.g., install.packages("pscl")
@@ -28,8 +28,8 @@ library(pscl) # zeroinfl() included
 #pop2Name <- "coller.filtmsh2"
 #flankSize <- 5000
 #flankName <- "5kb"
-#winSize <- 50
-#winName <- "50bp"
+#winSize <- 200
+#winName <- "200bp"
 #FDR <- 0.1
 #FDRname <- paste0("FDR", as.character(FDR))
 
