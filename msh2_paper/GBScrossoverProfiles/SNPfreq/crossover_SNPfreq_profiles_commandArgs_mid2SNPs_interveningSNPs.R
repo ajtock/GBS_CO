@@ -81,11 +81,11 @@ SNPsGR <- sort(SNPsGR)
 
 # For each chromosome, remove potential SNP-interval-start-defining SNPs
 # that are too close to chromosome starts and ends
-# (i.e., those within flankSize of chromosome starts, and
-# those within flankSize + double the maximum crossover width for that chromosome),
+# [i.e., those within flankSize of chromosome starts, and
+# those within flankSize + (double the maximum crossover width for that chromosome) of chromosome ends],
 # and remove potential SNP-interval-end-defining SNPs
 # that are too close to chromosome starts and ends
-# (i.e., those within flankSize of chromosome starts and ends)
+# [i.e., those within flankSize of chromosome starts and ends]
 # Also remove those which, after extension to maximum crossover interval width
 # for that chromosome, overlap crossover intervals
 qualStartSNPsGR <- GRanges()
