@@ -110,7 +110,7 @@ for(i in 1:length(chrs)) {
   # Right SNPs
   extendRightSNPsGRchr <- GRanges(seqnames = seqnames(SNPsGRchr),
                                   ranges = IRanges(start = start(SNPsGRchr) -
-                                                             (max(width(COsGRchr)) -1),
+                                                             (max(width(COsGRchr)) - 1),
                                                    end = start(SNPsGRchr)),
                                   strand = "*")
   CO_extendRightSNPs_overlap <- findOverlaps(query = COsGRchr,
@@ -192,68 +192,9 @@ for(i in 1:length(chrs)) {
   qualRightSNPsGR <- append(qualRightSNPsGR, qualRightSNPsGRchr)
 }
 
-qualStartSNPsGR <- GRanges()
-qualEndSNPsGR <- GRanges()
-for(i in 1:length(chrs)) {
-  COsGRchr <- COsGR[seqnames(COsGR) == chrs[i]]
-  SNPsGRchr <- SNPsGR[seqnames(SNPsGR) == chrs[i]]
-  # Remove SNP intervals too close to chromosome starts and ends
-  # [i.e., those whose midpoints are within flankSize + (0.5*winSize)
-  # of chromosome starts and ends]
-  # (0.5*winSize) represents half of the midpoint-window within which,
-  # and around which, SNPs will be counted
-  interSNPsGRchr <- interSNPsGRchr[( interSNPsGRchr$midpoint >
-                                       flankSize +
-                                       (0.5*winSize) ) &
-                                   ( interSNPsGRchr$midpoint <
-                                       chrLens[i] -
-                                       flankSize -
-                                       (0.5*winSize) )]
-
-  qualStartSNPsGRchr <- SNPsGRchr[( start(SNPsGRchr) >
-                                      flankSize ) &
-                                  ( start(SNPsGRchr) <
-                                      (chrLens[i] - flankSize - (max(width(COsGRchr))*2)) )]
-  qualEndSNPsGRchr <- SNPsGRchr[( start(SNPsGRchr) >
-                                    flankSize ) &
-                                ( start(SNPsGRchr) <
-                                    (chrLens[i] - flankSize) )]
-  qualStartSNPsGRchrPseudo <- GRanges(seqnames = seqnames(qualStartSNPsGRchr),
-                                      ranges = IRanges(start = start(qualStartSNPsGRchr),
-                                                       end = start(qualStartSNPsGRchr) +
-                                                             max(width(COsGRchr)) - 1),
-                                      strand = "*")
-  qualEndSNPsGRchrPseudo <- GRanges(seqnames = seqnames(qualEndSNPsGRchr),
-                                    ranges = IRanges(start = start(qualEndSNPsGRchr) -
-                                                             max(width(COsGRchr)) + 1,
-                                                     end = start(qualEndSNPsGRchr)),
-                                    strand = "*")
-  COs_qualStartSNPs_overlap <- findOverlaps(query = COsGRchr,
-                                            subject = qualStartSNPsGRchrPseudo,
-                                            type = "any",
-                                            select = "all",
-                                            ignore.strand = TRUE)
-  qualStartSNPsGRchrPseudo <- qualStartSNPsGRchrPseudo[-subjectHits(COs_qualStartSNPs_overlap)]
-  COs_qualEndSNPs_overlap <- findOverlaps(query = COsGRchr,
-                                          subject = qualEndSNPsGRchrPseudo,
-                                          type = "any",
-                                          select = "all",
-                                          ignore.strand = TRUE)
-  qualEndSNPsGRchrPseudo <- qualEndSNPsGRchrPseudo[-subjectHits(COs_qualEndSNPs_overlap)]
-  qualStartSNPsGRchr <- GRanges(seqnames = seqnames(qualStartSNPsGRchrPseudo),
-                                ranges = IRanges(start = start(qualStartSNPsGRchrPseudo),
-                                                 end = start(qualStartSNPsGRchrPseudo)),
-                                strand = "*")
-  qualEndSNPsGRchr <- GRanges(seqnames = seqnames(qualEndSNPsGRchrPseudo),
-                              ranges = IRanges(start = end(qualEndSNPsGRchrPseudo),
-                                               end = end(qualEndSNPsGRchrPseudo)),
-                              strand = "*")
-  qualStartSNPsGR <- append(qualStartSNPsGR, qualStartSNPsGRchr)
-  qualEndSNPsGR <- append(qualEndSNPsGR, qualEndSNPsGRchr)
-}
-
-# Define function to randomly select SNP-interval-start-defining SNPs from
-# qualStartSNPsGRchr, with the same number per chromosome as COsGR
+# Define function to randomly select SNP-interval-defining SNPs
+# from qualLeftSNPsGRchr and qualRightSNPsGRchr,
+# with the same number per chromosome as COsGR
 ranLocSelect <- function(coordinates, n) {
   sample(x = coordinates,
          size = n,
@@ -268,43 +209,91 @@ set.seed(93750174)
 
 # Apply ranLocSelect() on a per-chromosome basis so that
 # ranLocGR contains the same number of loci per chromosome as COsGR
-# First randomly select start coordinates from start(qualStartSNPsGRchr),
-# then define pseudo end coordinates based on COsGRchr widths,
-# then move end coordinates to nearest start(qualEndSNPsGRchr) that is
-# greater than the start coordinate randomly selected for a given locus
+# First randomly select start coordinates from start(qualLeftSNPsGRchr)
+# (n = length(seq(from = 1, to = length(COsGRchr), by = 2))).
+# Then define end coordinates based on widths of ranges in
+# COsGRchr[seq(from = 1, to = length(COsGRchr), by = 2)].
+# Then randomly select end coordinates from start(qualRightSNPsGRchr)
+# (n = length(seq(from = 2, to = length(COsGRchr), by = 2))).
+# Then define start coordinates based on widths of ranges in
+# COsGRchr[seq(from = 2, to = length(COsGRchr), by = 2)].
 ranLocGR <- GRanges()
 for(i in 1:length(chrs)) {
   print(i)
   COsGRchr <- COsGR[seqnames(COsGR) == chrs[i]]
-  qualStartSNPsGRchr <- qualStartSNPsGR[seqnames(qualStartSNPsGR) == chrs[i]]
-  qualEndSNPsGRchr <- qualEndSNPsGR[seqnames(qualEndSNPsGR) == chrs[i]]
-  ranLocStart <- ranLocSelect(coordinates = start(qualStartSNPsGRchr),
-                              n = length(COsGRchr))
-  ranLocGRchrPseudo <- GRanges(seqnames = chrs[i],
-                               ranges = IRanges(start = ranLocStart,
-                                                width = width(COsGRchr)),
-                               strand = "*")
-  ranLocEnd <- NULL
-  for(x in 1:length(ranLocGRchrPseudo)) {
-    print(x)
-    qualEndSNPsGRchrx <- qualEndSNPsGRchr[start(qualEndSNPsGRchr) >
-                                          start(ranLocGRchrPseudo[x])]
-    ranLocEndxGR <- qualEndSNPsGRchrx[abs( start(qualEndSNPsGRchrx) -
-                                           end(ranLocGRchrPseudo[x]) ) ==
-                                      min(abs( start(qualEndSNPsGRchrx) -
-                                               end(ranLocGRchrPseudo[x]) ))]
-    ranLocEndx <- start(ranLocEndxGR[1])
-    ranLocEnd <- c(ranLocEnd, ranLocEndx)
-  }
-  print(i)
-  ranLocGRchr <- GRanges(seqnames = chrs[i],
-                         ranges = IRanges(start = ranLocStart,
-                                          end = ranLocEnd),
-                         strand = "*") 
+  # Left SNPs
+  qualLeftSNPsGRchr <- qualLeftSNPsGR[seqnames(qualLeftSNPsGR) == chrs[i]]
+  ranLocLeftSNPschr <- ranLocSelect(coordinates = start(qualLeftSNPsGRchr),
+                                    n = length(seq(from = 1,
+                                                   to = length(COsGRchr),
+                                                   by = 2)))
+  ranLocLeftGRchr <- GRanges(seqnames = chrs[i],
+                             ranges = IRanges(start = ranLocLeftSNPschr,
+                                              width = width(COsGRchr[seq(from = 1,
+                                                                         to = length(COsGRchr),
+                                                                         by = 2)])),
+                             strand = "*")
+  # Right SNPs
+  qualRightSNPsGRchr <- qualRightSNPsGR[seqnames(qualRightSNPsGR) == chrs[i]]
+  ranLocRightSNPschr <- ranLocSelect(coordinates = start(qualRightSNPsGRchr),
+                                     n = length(seq(from = 2,
+                                                    to = length(COsGRchr),
+                                                    by = 2)))
+  ranLocRightGRchr <- GRanges(seqnames = chrs[i],
+                              ranges = IRanges(end = ranLocRightSNPschr,
+                                               width = width(COsGRchr[seq(from = 2,
+                                                                          to = length(COsGRchr),
+                                                                          by = 2)])),
+                              strand = "*")
+  ranLocGRchr <- append(ranLocLeftGRchr, ranLocRightGRchr)
+  ranLocGRchr <- sort(ranLocGRchr)
   ranLocGR <- append(ranLocGR, ranLocGRchr)
 }
 print(range(width(COsGR)))
 print(range(width(ranLocGR)))
+
+# Plot crossover and random loci width distributions
+pdf(paste0(plotDir, popName, "_COs_and_ranLoc_width_distributions.pdf"),
+    height = 6, width = 10)
+par(mfrow = c(1, 2),
+    mar = c(6, 6, 2, 2),
+    mgp = c(4, 1.5, 0))
+hist(width(COsGR),
+     breaks = 200,
+     col = "grey50",
+     border = NA,
+     lwd = 2,
+     xlim = c(min(c(width(COsGR), width(ranLocGR))),
+              max(c(width(COsGR), width(ranLocGR)))),
+     ylim = c(0, 250),
+     xlab = "Width (bp)",
+     ylab = "Intervals",
+     main = "Crossovers",
+     cex.lab = 2, cex.axis = 2)
+abline(v = mean(width(COsGR)),
+       col = "red", lty = 2, lwd = 2)
+hist(width(ranLocGR),
+     breaks = 200,
+     col = "grey50",
+     border = NA,
+     lwd = 2,
+     xlim = c(min(c(width(COsGR), width(ranLocGR))),
+              max(c(width(COsGR), width(ranLocGR)))),
+     ylim = c(0, 250),
+     xlab = "Width (bp)",
+     ylab = "Intervals",
+     main = "Random SNP intervals",
+     cex.lab = 2, cex.axis = 2)
+abline(v = mean(width(ranLocGR)),
+       col = "red", lty = 2, lwd = 2)
+dev.off()
+
+KSwidthDist <- ks.test(x = width(COsGR), y = width(ranLocGR))
+print(paste0("K-S test P-value = ", KSwidthDist$p.value))
+if(KSwidthDist$p.value < 0.05) {
+  stop("K-S test P-value is < 0.05; crossover and random loci width distributions differ")
+}
+
 
 # Create COsGRflank
 COsGRflank <- COsGR
