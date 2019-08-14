@@ -52,7 +52,7 @@ COsGR <- GRanges(seqnames = paste0("Chr",
                               as.character(COs$lib)))
 # Correct CO midpoints
 COsGR$midpoint <- start(COsGR) +
-                    (round(0.5 * ((end(COsGR) - start(COsGR)) + 1)))
+                    (round(0.5 * (end(COsGR) - start(COsGR))))
 
 # Convert library (individual) names (e.g., from "1.1" to "1.01") to enable
 # sorting individuals by increasing number
