@@ -15,7 +15,7 @@
 # https://data.princeton.edu/wws509/r/overdispersion
 
 # Usage from within directory containing windowed CO counts files:
-# ./regression_SNP_count_per_win_COs.R coller.filtarb coller.filtmsh2 5000 5kb 200 200bp 0.1
+# ./regression_SNP_count_per_win_COs.R coller.filtarb coller.filtmsh2 15000 15kb 100 100bp 0.1
 
 # Some of these packages may not already be installed
 # e.g., install.packages("pscl")
@@ -26,10 +26,10 @@ library(pscl) # zeroinfl() included
 
 #pop1Name <- "coller.filtarb"
 #pop2Name <- "coller.filtmsh2"
-#flankSize <- 5000
-#flankName <- "5kb"
-#winSize <- 200
-#winName <- "200bp"
+#flankSize <- 15000
+#flankName <- "15kb"
+#winSize <- 100
+#winName <- "100bp"
 #FDR <- 0.1
 #FDRname <- paste0("FDR", as.character(FDR))
 
@@ -759,14 +759,14 @@ plotAvgSNPfreq <- function(dat1, dat2,
                       .(as.character(winSize)) ~ "bp"^-1))
   axis(side = 1, lwd = 2,
        at = c(1,
-              ((flankSize/winSize)/2),
+              ((flankSize+winSize)/winSize)-((flankSize/winSize)/2),
               ((flankSize+winSize)/winSize),
               (((flankSize*2)+winSize)/winSize)-((flankSize/winSize)/2),
               (((flankSize*2)+winSize)/winSize)),
        labels = c("", "", "", "", ""))
   mtext(side = 1, line = 0.5, cex = 0.7,
         at = c(1,
-               ((flankSize/winSize)/2),
+               ((flankSize+winSize)/winSize)-((flankSize/winSize)/2),
                ((flankSize+winSize)/winSize),
                (((flankSize*2)+winSize)/winSize)-((flankSize/winSize)/2),
                (((flankSize*2)+winSize)/winSize)),
