@@ -5,19 +5,19 @@
 # that overlaps the midpoint of crossover intervals, and tabulate model summaries
 
 # Usage from within directory containing windowed CO counts files:
-# ./regression_SNP_count_per_win_COs_midpoints.R coller.filtarb coller.filtmsh2 15000 15kb 100 100bp 0.1
+# ./regression_SNP_count_per_win_COs_midpoints_5000bp_win.R colclc.filtarb colclc.filtmsh2 15000 15kb 5000 5000bp 0.1
 
 library(parallel)
 library(MASS) # glm.nb() included
 library(pscl) # zeroinfl() included
 library(AER) # dispersiontest() included
 
-#pop1Name <- "coller.filtarb"
-#pop2Name <- "coller.filtmsh2"
+#pop1Name <- "colclc.filtarb"
+#pop2Name <- "colclc.filtmsh2"
 #flankSize <- 15000
 #flankName <- "15kb"
-#winSize <- 100
-#winName <- "100bp"
+#winSize <- 5000
+#winName <- "5000bp"
 #FDR <- 0.1
 #FDRname <- paste0("FDR", as.character(FDR))
 
@@ -89,8 +89,15 @@ genotype_poisson_disp_Pvals <- sapply(seq_along(genotype_poisson_disp), function
 
 
 ## Zero-inflated negative binomial regression:
+# Note y ~ genotype | genotype , which is equivalent to y ~ genotype
+# Required to obtain non-NaN Std. error, Z-value and P-value
+# for 5000-bp middle window (midWin) model, where assumption that
+# zero-inflation affects both genotypes equally does not hold
+# (e.g., number of occurrences of 0 SNPs in middle windows of
+# crossovers are significantly higher in the mutant population) 
+# See https://stats.stackexchange.com/questions/209211/zero-inflated-poisson-regression-warning-message-in-sqrtdiagobjectvcov
 genotype_ZINB <- mclapply(seq_along(pop1_matList[[1]]), function(x) {
-  zeroinfl(formula = c(pop1_matList[[1]][[x]], pop2_matList[[1]][[x]]) ~ genotype | 1,
+  zeroinfl(formula = c(pop1_matList[[1]][[x]], pop2_matList[[1]][[x]]) ~ genotype | genotype,
            dist = "negbin")
 }, mc.cores = detectCores())
 
