@@ -54,6 +54,12 @@ pop2_matList <- list(read.table(paste0(matDir,
                                        flankName, "_flank_", winName, "_win_dataframe.txt"),
                                 header = T))
 
+
+percentChange <- sapply(seq_along(pop1_matList[[1]]), function(x) {
+  ( 1 - ( as.vector(colMeans(pop2_matList[[1]])[x]) /
+          as.vector(colMeans(pop1_matList[[1]])[x]) ) ) * -1
+})
+
 # Define and create new directories and subdirectories
 # to contain results
 sizeDir <- paste0(flankName, "_flank_", winName, "_win/")
@@ -111,3 +117,34 @@ write.table(genotype_ZINB_midWin_df,
             file = paste0(outDir, pop1Name, "_v_", pop2Name, "_SNP_frequency_",
                           "at_crossover_midpoints_ZINB_", winName, "_win.tsv"),
             row.names = F, col.names = T, sep = "\t", quote = T)
+
+# Get estimates
+genotype_ZINB_estimates <- sapply(seq_along(genotype_ZINB), function(x) {
+  as.vector(coef(genotype_ZINB[[x]])[2])
+})
+
+# Plot estimates vs actual mean percent changes
+pdf(paste0(outDir, pop1Name, "_v_", pop2Name, "_SNP_frequency_",
+           "at_crossover_midpoints_ZINB_", winName, "_win_",
+           "estimates_v_percentChanges.pdf"),
+    height = 5, width = 8)
+par(mfrow = c(1, 1))
+par(mar = c(4.1, 4.1, 3.1, 4.1))
+par(mgp = c(3, 1, 0))
+plot(x = 1:length(genotype_ZINB_estimates),
+     y = genotype_ZINB_estimates,
+     col = "red", type = "p", pch = 19,
+     xlab = paste0("Windows (", as.character(winSize), " bp)"),
+     ylab = "Change",
+     main = paste0("SNP-count changes around \n",
+                   pop1Name, " and ", pop2Name, " crossovers"),
+     ylim = c(min(genotype_ZINB_estimates, percentChange),
+              max(genotype_ZINB_estimates, percentChange)))
+lines(x = 1:length(genotype_ZINB_estimates), y = percentChange, col = "blue", type = "p", pch = 19)
+legend("bottomleft",
+       legend = c("ZINB estimate", "Actual mean change"),
+       col = c("red", "blue"),
+       text.col = c("red", "blue"),
+       text.font = c(1, 1),
+       ncol = 1, cex = 0.7, lwd = 1.5, bty = "n")
+dev.off()
