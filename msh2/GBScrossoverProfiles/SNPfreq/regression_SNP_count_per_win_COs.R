@@ -575,8 +575,6 @@ print(paste0("genotype_ZINB BIC is < genotype_ZIP BIC for ",
              sum(genotype_ZINB_BIC_vs_genotype_ZIP_BIC, na.rm = T), "/", length(genotype_ZINB), " windows"))
 
 
-# Note: negative binomial models should not be fit to these data
-# due to absence of overdispersion 
 ## N
 #negbin <- lapply(seq_along(pop1_matList[[1]]), function(x) {
 #  glm.nb(formula = pops_winIndCOs_list[[x]] ~ genotype,
