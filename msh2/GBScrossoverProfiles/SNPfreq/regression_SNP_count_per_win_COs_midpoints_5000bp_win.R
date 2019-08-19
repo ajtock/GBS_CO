@@ -130,7 +130,7 @@ genotype_ZINB_estimates <- sapply(seq_along(genotype_ZINB), function(x) {
   as.vector(coef(genotype_ZINB[[x]])[2])
 })
 
-# Plot estimates vs actual mean proportion changes
+# Plot estimates vs observed mean proportion changes
 pdf(paste0(outDir, pop1Name, "_v_", pop2Name, "_SNP_frequency_",
            "at_crossover_midpoints_ZINB_", winName, "_win_",
            "estimates_v_propChanges.pdf"),
@@ -149,7 +149,7 @@ plot(x = 1:length(genotype_ZINB_estimates),
               max(genotype_ZINB_estimates, propChange)))
 lines(x = 1:length(genotype_ZINB_estimates), y = propChange, col = "blue", type = "p", pch = 19)
 legend("bottomleft",
-       legend = c("ZINB estimate", "Actual mean proportion change"),
+       legend = c("ZINB estimate", "Observed mean proportion change"),
        col = c("red", "blue"),
        text.col = c("red", "blue"),
        text.font = c(1, 1),

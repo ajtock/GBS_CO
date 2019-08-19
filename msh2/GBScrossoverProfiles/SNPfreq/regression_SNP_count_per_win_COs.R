@@ -454,7 +454,7 @@ genotype_ZIP_vuong <- lapply(seq_along(genotype_ZIP), function(x) {
 genotype_ZINB <- mclapply(seq_along(pop1_matList[[1]]), function(x) {
   zeroinfl(formula = c(pop1_matList[[1]][[x]], pop2_matList[[1]][[x]]) ~ genotype | 1,
            dist = "negbin")
-}, mc.cores = detectCores())
+}, mc.cores = length(pop1_matList[[1]]))
 print("Representative example: ZINB model for first genomic window")
 print(summary(genotype_ZINB[[1]]))
 # Get estimates

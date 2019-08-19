@@ -99,7 +99,7 @@ genotype_poisson_disp_Pvals <- sapply(seq_along(genotype_poisson_disp), function
 genotype_ZINB <- mclapply(seq_along(pop1_matList[[1]]), function(x) {
   zeroinfl(formula = c(pop1_matList[[1]][[x]], pop2_matList[[1]][[x]]) ~ genotype | 1,
            dist = "negbin")
-}, mc.cores = detectCores())
+}, mc.cores = length(pop1_matList[[1]]))
 
 # Tabulate results
 genotype_ZINB_midWin_df <- data.frame("Window" = paste0(as.character(winSize), " bp"),
@@ -124,7 +124,7 @@ genotype_ZINB_estimates <- sapply(seq_along(genotype_ZINB), function(x) {
   as.vector(coef(genotype_ZINB[[x]])[2])
 })
 
-# Plot estimates vs actual mean proportion changes
+# Plot estimates vs observed mean proportion changes
 pdf(paste0(outDir, pop1Name, "_v_", pop2Name, "_SNP_frequency_",
            "at_crossover_midpoints_ZINB_", winName, "_win_",
            "estimates_v_propChanges.pdf"),
@@ -143,7 +143,7 @@ plot(x = 1:length(genotype_ZINB_estimates),
               max(genotype_ZINB_estimates, propChange)))
 lines(x = 1:length(genotype_ZINB_estimates), y = propChange, col = "blue", type = "p", pch = 19)
 legend("bottomleft",
-       legend = c("ZINB estimate", "Actual mean proportion change"),
+       legend = c("ZINB estimate", "Observed mean proportion change"),
        col = c("red", "blue"),
        text.col = c("red", "blue"),
        text.font = c(1, 1),
