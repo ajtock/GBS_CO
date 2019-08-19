@@ -16,7 +16,9 @@ flankSize <- as.numeric(args[1])
 flankName <- as.character(args[2])
 
 library(ggplot2)
+library(grid)
 library(gridExtra)
+library(extrafont)
 
 pop1Names <- c("coller.filtarb", "colclc.filtarb", "coller.filt", "coller.filt", "coller.filt")
 pop2Names <- c("coller.filtmsh2", "colclc.filtmsh2", "coller.filtrecq4a4b", "coller.filtrecqHEI10mask", "coller.filtHEI10mask")
@@ -50,38 +52,53 @@ dfListrbind <- lapply(seq_along(winNames), function(x) {
 })
 for(x in seq_along(winNames)) {
   colnames(dfListrbind[[x]]) <- c("Window size", "Population", "Estimate", "2.5% CI", "97.5% CI", "Std. error", "Z-value", "P-value")
-  dfListrbind[[x]]$Population <- c("msh2 (Col/Ler)", "msh2 (Col/CLC)", "recq4ab (Col/Ler)", "recq4ab HEI10 (Col/Ler)", "HEI10 (Col/Ler)")
+  dfListrbind[[x]]$Population <- factor(c("msh2", "msh2 (Col/CLC)", "recq4ab",
+                                          "recq4ab HEI10", "HEI10"),
+                                        levels = c("msh2", "msh2 (Col/CLC)", "recq4ab",
+                                                   "recq4ab HEI10", "HEI10"))
 }
 
 # Plot estimates and 95% confidence intervals, coloured by P-value
 estPlotFun <- function(dataFrame) {
   ggplot(data = dataFrame,
          mapping = aes(x = Population,
-                       y = Estimate)) +
+                       y = Estimate,
+                       colour = `P-value`)) +
+  labs(colour = "P-value") +
   geom_errorbar(mapping = aes(ymin = `2.5% CI`,
                               ymax = `97.5% CI`),
-                width = 0.5, colour = "red") +
-  geom_point(shape = 21, size = 10, fill = "red") +
+                width = 0.2, size = 2) +
+  geom_point(shape = 19, size = 10) +
+  scale_color_gradient2(low = "red",
+                        mid = "yellow",
+                        high = "blue",
+                        midpoint = 0.05) +
+  scale_x_discrete(breaks = as.vector(dataFrame$Population),
+                   labels = c(bquote(italic(.(as.vector(dataFrame$Population)[1]))),
+                              bquote(italic(.(as.vector(dataFrame$Population)[2]))),
+                              bquote(italic(.(as.vector(dataFrame$Population)[3]))),
+                              bquote(italic(.(as.vector(dataFrame$Population)[4]))),
+                              bquote(italic(.(as.vector(dataFrame$Population)[5]))))) +
   labs(x = "",
        y = "Estimate") +
   theme_bw() +
-  theme(axis.line.y = element_line(size = 1.0, colour = "black"),
-        axis.ticks.y = element_line(size = 1.0, colour = "black"),
+  theme(axis.line.y = element_line(size = 1.5, colour = "black"),
+        axis.ticks.length = unit(5, "pt"),
+        axis.ticks.y = element_line(size = 1.5, colour = "black"),
         axis.ticks.x = element_blank(),
         axis.text.y = element_text(size = 18, colour = "black"),
-        axis.text.x = element_text(size = 18, colour = "black", hjust = 0, vjust = 0.5, angle = 45),
-        axis.title = element_text(size = 10, colour = "black"),
-        legend.position = "none",
+        axis.text.x = element_text(size = 18, colour = "black", hjust = 1.0, vjust = 1.0, angle = 45),
+        axis.title = element_text(size = 18, colour = "black"),
+        legend.text = element_text(size = 18, colour = "black"),
+        legend.title = element_text(size = 18, colour = "black"),
         panel.grid = element_blank(),
         panel.border = element_blank(),
         panel.background = element_blank(),
-        plot.margin = unit(c(0.3, 0.9, 0.0, 0.3), "cm"),
-        plot.title = element_text(hjust = 0.5, size = 30)) +
-  ggtitle(bquote("Estimated change in SNP frequency in central\n" ~
-                 .(as.character(dataFrame$`Window size`[1])) ~
-                 "overlapping crossover midpoints"))
+        plot.margin = unit(c(0.3, 0.9, 0.9, 0.3), "cm"),
+        plot.title = element_text(hjust = 0.5, size = 12)) +
+  ggtitle(bquote(.(as.character(dataFrame$`Window size`[1])) ~
+                 "centred on crossover midpoints"))
 }
-
 estPlots <- lapply(seq_along(dfListrbind), function(x) {
   estPlotFun(dataFrame = dfListrbind[[x]])
 })
@@ -90,13 +107,4 @@ estPlotsGA <- do.call(grid.arrange,
 ggsave(estPlotsGA,
        file = paste0(outDir, "wt_v_mutant_population_SNP_frequency_",
                      "at_crossover_midpoints_ZINB_all_wins_estimates_95CIs.pdf"),
-       width = 18, height = 18*length(dfListrbind), units = "cm")
-
-
-
-dfrbind <- do.call(rbind, dfList)
-colnames(dfrbind) <- c("Window size", "ZINB", "Estimate", "2.5% CI", "97.5% CI", "Std. error", "Z-value", "P-value")
-write.table(dfrbind,
-            file = paste0(outDir, pop1Name, "_v_", pop2Name, "_SNP_frequency_",
-                          "at_crossover_midpoints_ZINB_all_wins.tsv"),
-            row.names = F, col.names = T, sep = "\t", quote = T)
+       width = 20, height = 18*length(dfListrbind), units = "cm")
