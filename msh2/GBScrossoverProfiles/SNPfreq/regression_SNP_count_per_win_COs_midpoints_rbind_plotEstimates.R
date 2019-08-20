@@ -95,7 +95,7 @@ estPlotFun <- function(dataFrame) {
         panel.border = element_blank(),
         panel.background = element_blank(),
         plot.margin = unit(c(0.3, 0.9, 0.9, 0.3), "cm"),
-        plot.title = element_text(hjust = 0.5, size = 12)) +
+        plot.title = element_text(hjust = 0.5, size = 20)) +
   ggtitle(bquote(.(as.character(dataFrame$`Window size`[1])) ~
                  "centred on crossover midpoints"))
 }
