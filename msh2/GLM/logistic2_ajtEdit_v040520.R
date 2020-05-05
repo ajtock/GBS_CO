@@ -12,6 +12,7 @@
 
 library(segmentSeq)
 library(glm2)
+library(MASS)
 
 # Genomic definitions
 genomeFAI <- read.table("/projects/ajt200/TAIR10/TAIR10_chr_all.fa.fai",
@@ -72,14 +73,33 @@ print(length(regionsGR))
 
 # Load SPO11-1-oligos, nuclesome occupancy, H3K4me3 ChIP-seq and DNA methylation data
 # and calculate sum and mean in each region
-
 SPO11 <- read.table(paste0("/projects/ajt200/BAM_masters/SPO11-oligo/WT/coverage/log2ChIPinput/noZscore/",
-                           "log2wtSPO11oligoRPI1NakedDNA_norm_allchrs_coverage_coord_tab_noZscore.bed"),
+                           "log2wtSPO11oligoMeanAllRepsNakedDNA_norm_allchrs_coverage_coord_tab_noZscore.bed"),
                     colClasses = c(NA, rep("NULL", 2), NA),
                     header = F)
+colnames(SPO11) <- c("chr", "signal")
+#SPO11_Rep1 <- read.table(paste0("/projects/ajt200/BAM_masters/SPO11-oligo/WT/coverage/log2ChIPinput/noZscore/",
+#                                "log2wtSPO11oligoRPI1NakedDNA_norm_allchrs_coverage_coord_tab_noZscore.bed"),
+#                         colClasses = c(NA, rep("NULL", 2), NA),
+#                         header = F)
+#SPO11_Rep2 <- read.table(paste0("/projects/ajt200/BAM_masters/SPO11-oligo/WT/coverage/log2ChIPinput/noZscore/",
+#                                "log2wtSPO11oligoRPI3NakedDNA_norm_allchrs_coverage_coord_tab_noZscore.bed"),
+#                         colClasses = c(NA, rep("NULL", 2), NA),
+#                         header = F)
+#SPO11_Rep3 <- read.table(paste0("/projects/ajt200/BAM_masters/SPO11-oligo/WT/coverage/log2ChIPinput/noZscore/",
+#                                "log2wtSPO11oligoRPI8NakedDNA_norm_allchrs_coverage_coord_tab_noZscore.bed"),
+#                         colClasses = c(NA, rep("NULL", 2), NA),
+#                         header = F)
+#SPO11_df <- data.frame(Rep1 = SPO11_Rep1$V4,
+#                       Rep2 = SPO11_Rep2$V4,
+#                       Rep3 = SPO11_Rep3$V4,
+#                       stringsAsFactors = F)
+#SPO11 <- data.frame(chr = SPO11_Rep1$V1,
+#                    signal = rowMeans(SPO11_df),
+#                    stringsAsFactors = F)
 splitSPO11 <- list()
 for(x in 1:5) {
-  chr_SPO11 <- SPO11[SPO11[,1] == chrs[x],]$V4
+  chr_SPO11 <- SPO11[SPO11$chr == chrs[x],]$signal
   chr_regionsGR <- regionsGR[seqnames(regionsGR) == chrs[x]]
   splitSPO11 <- c(splitSPO11,
                   split(x = chr_SPO11,
@@ -90,13 +110,14 @@ for(x in 1:5) {
 meanSPO11 <- sapply(splitSPO11, mean)
 sumSPO11 <- sapply(splitSPO11, sum)
 
-MNase <- read.table(paste0("/projects/ajt200/BAM_masters/nucleosomes/WT/coverage/nakedDNA_untrimmed_input/",
-                           "log2ChIPinput/noZscore/log2wtNucNakedDNAuntrimmed_norm_allchrs_coverage_coord_tab_noZscore.bed"),
+MNase <- read.table(paste0("/projects/ajt200/BAM_masters/nucleosomes/WT/coverage/nakedDNA_untrimmed_input/log2ChIPinput/noZscore/",
+                           "log2wtNucNakedDNAuntrimmed_norm_allchrs_coverage_coord_tab_noZscore.bed"),
                     colClasses = c(NA, rep("NULL", 2), NA),
                     header = F)
+colnames(MNase) <- c("chr", "signal")
 splitMNase <- list()
 for(x in 1:5) {
-  chr_MNase <- MNase[MNase[,1] == chrs[x],]$V4
+  chr_MNase <- MNase[MNase$chr == chrs[x],]$signal
   chr_regionsGR <- regionsGR[seqnames(regionsGR) == chrs[x]]
   splitMNase <- c(splitMNase,
                   split(x = chr_MNase,
@@ -107,13 +128,34 @@ for(x in 1:5) {
 meanMNase <- sapply(splitMNase, mean)
 sumMNase <- sapply(splitMNase, sum)
 
-H3K4me3 <- read.table(paste0("/projects/ajt200/BAM_masters/H3K4me3/replicates/coverage/log2ChIPinput/noZscore/",
-                           "WT_H3K4me3_ChIP14_log2ChIPinput_norm_allchrs_coverage_coord_tab_noZscore.bed"),
-                    colClasses = c(NA, rep("NULL", 2), NA),
-                    header = F)
+H3K4me3 <- read.table(paste0("/projects/ajt200/BAM_masters/H3K4me3/WT/coverage/log2ChIPinput/noZscore/",
+                             "log2wtH3K4me3ChIPwtH3K9me2input_noZscore_norm_allchrs_coverage_coord_tab.bed"),
+                      colClasses = c(NA, rep("NULL", 2), NA),
+                      header = F)
+colnames(H3K4me3) <- c("chr", "signal")
+#H3K4me3_Rep1 <- read.table(paste0("/projects/ajt200/BAM_masters/H3K4me3/replicates/coverage/log2ChIPinput/noZscore/",
+#                                  "WT_H3K4me3_ChIP12_log2ChIPinput_norm_allchrs_coverage_coord_tab_noZscore.bed"),
+#                           colClasses = c(NA, rep("NULL", 2), NA),
+#                           header = F)
+#H3K4me3_Rep2 <- read.table(paste0("/projects/ajt200/BAM_masters/H3K4me3/replicates/coverage/log2ChIPinput/noZscore/",
+#                                  "WT_H3K4me3_ChIP14_log2ChIPinput_norm_allchrs_coverage_coord_tab_noZscore.bed"),
+#                           colClasses = c(NA, rep("NULL", 2), NA),
+#                           header = F)
+#H3K4me3_Rep3 <- read.table(paste0("/projects/ajt200/BAM_masters/H3K4me3/replicates/coverage/log2ChIPinput/noZscore/",
+#                                  "WT_H3K4me3_ChIP15_log2ChIPinput_norm_allchrs_coverage_coord_tab_noZscore.bed"),
+#                           colClasses = c(NA, rep("NULL", 2), NA),
+#                           header = F)
+#H3K4me3_df <- data.frame(
+#                         Rep1 = H3K4me3_Rep1$V4,
+#                         Rep2 = H3K4me3_Rep2$V4,
+#                         Rep3 = H3K4me3_Rep3$V4,
+#                         stringsAsFactors = F)
+#H3K4me3 <- data.frame(chr = H3K4me3_Rep1$V1,
+#                      signal = rowMeans(H3K4me3_df),
+#                      stringsAsFactors = F)
 splitH3K4me3 <- list()
 for(x in 1:5) {
-  chr_H3K4me3 <- H3K4me3[H3K4me3[,1] == chrs[x],]$V4
+  chr_H3K4me3 <- H3K4me3[H3K4me3$chr == chrs[x],]$signal
   chr_regionsGR <- regionsGR[seqnames(regionsGR) == chrs[x]]
   splitH3K4me3 <- c(splitH3K4me3,
                   split(x = chr_H3K4me3,
@@ -228,7 +270,7 @@ for(x in 1:5) {
   meanSNPs <- c(meanSNPs, winSNPs/width(windowsGR))
   sumSNPs <- c(sumSNPs, winSNPs)
 } 
- 
+
 # Create data object for model
 dat <- cbind.data.frame(CO = regionsGR %in% COsGR,
                         meanSPO11 = meanSPO11,
@@ -243,203 +285,306 @@ dat <- cbind.data.frame(CO = regionsGR %in% COsGR,
                         width = width(regionsGR))
 save(dat, file = "df_for_GLM.RData")
 
+# Discard rows with missing data
+dat <- dat[!is.na(dat$meanDNAmeth),]
+
 # Build binomial GLM with "logit" link function
-#############################################################
-# run binomial GLM model, link function is logit, plot data #
-#############################################################
-# predict function produces predicted values 
-# Tom uses sumspo - why not meanspo - because width is a variable?
 
-glmCO <- glm2(formula = CO ~ sumSPO11 * sumMNase * sumH3K4me3 * meanDNAmeth * width,
+# Looks like Ian used formula (excluding meanSNPs) considering two-way interactions to build the model,
+# but smaller AIC can be obtained by accounting for more interactions
+#glmCO <- glm2(formula = CO ~ meanSPO11 * meanMNase * meanH3K4me3 * meanDNAmeth * meanSNPs * width,
+glmCO <- glm2(formula = CO ~ (meanSPO11 + meanMNase + meanH3K4me3 + meanDNAmeth + meanSNPs + width)^2,
               family = binomial(link="logit"),
+              control = glm.control(maxit = 2000),
               data = dat)
+#glmCO <- glm2(formula = CO ~ meanSPO11 + meanMNase + meanH3K4me3 + meanDNAmeth + width +
+#              meanSPO11:meanMNase + meanSPO11:meanH3K4me3 + meanSPO11:width +
+#              meanMNase:meanH3K4me3 + meanMNase:meanDNAmeth +
+#              meanH3K4me3:meanDNAmeth +
+#              meanDNAmeth:width,
+#              family = binomial(link="logit"),
+#              data = dat)
+#glm_select <- glmCO
+
+glm_stepAIC <- stepAIC(object = glmCO, direction = "both")
+print("stepAIC-selected model formula:")
+print(glm_stepAIC$formula)
+glm_select <- glm2(formula = glm_stepAIC$formula, 
+                   family = binomial(link="logit"),
+                   data = dat)
+glm_summary <- summary(glm_select)
+glm_coeffs <- glm_summary$coefficients
+glm_predict <- predict(glm_select, type = "response")
+save(glm_stepAIC, file = "GLM_binomial_logit_stepAIC_inclDNAmeth.RData")
+save(glm_select, file = "GLM_binomial_logit_inclDNAmeth.RData")
+save(glm_summary, file = "GLM_binomial_logit_summary_inclDNAmeth.RData")
+write.csv(glm_coeffs, file = "GLM_binomial_logit_coeff_inclDNAmeth.csv")
+save(glm_predict, file = "GLM_binomial_logit_predict_inclDNAmeth.RData")
+
+# Plot observed and predicted crossovers for regionsGR grouped into hexiles
+
+# meanSPO11 hexiles
+sort(dat$meanSPO11)[round(1:6*(nrow(dat)/6))]
+#[1] -1.205848832 -0.723219146 -0.372348353  0.001650497  0.467101543 [6]  4.399179154
+levels(cut(x = dat$meanSPO11,
+           breaks = c(min(dat$meanSPO11, na.rm = T),
+                      sort(dat$meanSPO11)[round(1:6*(nrow(dat)/6))])))
+#[1] "(-4.47,-1.21]"    "(-1.21,-0.723]"   "(-0.723,-0.372]"  "(-0.372,0.00165]"
+#[5] "(0.00165,0.467]"  "(0.467,4.4]"
+ssID <- split(x = 1:nrow(dat),
+              f = cut(x = dat$meanSPO11,
+                      breaks = c(min(dat$meanSPO11, na.rm = T),
+                                 sort(dat$meanSPO11)[round(1:6*(nrow(dat)/6))])))
+pdf("GLM_binomial_logit_SPO11_hexiles_CO_boxplot_inclDNAmeth.pdf")
+boxplot(
+  lapply(ssID, function(x) {
+    sapply(1:100, function(ii) {
+      sum( rbinom(n = length(x), size = 1, prob = glm_predict[x]) ) /
+      sum( dat$width[x] ) * 1e6
+    })
+  }),
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPs+width)^2",
+  xlab = "SPO11-1-oligo hexiles",
+  ylab = "Crossovers per Mb",
+  names = as.character(6:1)
+)
+tco <- sapply(ssID, function(x) {
+  sum(dat$CO[x]) /
+  sum(dat$width[x]) * 1e6
+})
+points(x = 1:length(ssID),
+       y = tco,
+       col = "red", pch = 19)
+legend("topleft",
+       legend = c("Observed", "Prediced"),
+       text.col = c("red", "black"), bty = "n")
+dev.off()
+
+# meanSNPs hexiles
+sort(dat$meanSNPs)[round(1:6*(nrow(dat)/6))]
+#[1] 0.003367003 0.006756757 0.011695906 0.019607843 0.036363636 0.600000000
+levels(cut(x = dat$meanSNPs,
+           breaks = c(min(dat$meanSNPs, na.rm = T),
+                      sort(dat$meanSNPs)[round(1:6*(nrow(dat)/6))])))
+#[1] "(1.57e-05,0.00337]" "(0.00337,0.00676]"  "(0.00676,0.0117]"
+#[4] "(0.0117,0.0196]"    "(0.0196,0.0364]"    "(0.0364,0.6]"
+ssID <- split(x = 1:nrow(dat),
+              f = cut(x = dat$meanSNPs,
+                      breaks = c(min(dat$meanSNPs, na.rm = T),
+                                 sort(dat$meanSNPs)[round(1:6*(nrow(dat)/6))])))
+pdf("GLM_binomial_logit_SNP_hexiles_CO_boxplot_inclDNAmeth.pdf")
+boxplot(
+  lapply(ssID, function(x) {
+    sapply(1:100, function(ii) {
+      sum( rbinom(n = length(x), size = 1, prob = glm_predict[x]) ) /
+      sum( dat$width[x] ) * 1e6
+    })
+  }),
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPs+width)^2",
+  xlab = "SNP hexiles",
+  ylab = "Crossovers per Mb",
+  names = as.character(6:1)
+)
+tco <- sapply(ssID, function(x) {
+  sum(dat$CO[x]) /
+  sum(dat$width[x]) * 1e6
+})
+points(x = 1:length(ssID),
+       y = tco,
+       col = "red", pch = 19)
+legend("topleft",
+       legend = c("Observed", "Prediced"),
+       text.col = c("red", "black"), bty = "n")
+dev.off()
+
+# meanMNase hexiles
+sort(dat$meanMNase)[round(1:6*(nrow(dat)/6))]
+#[1] -1.17183549 -0.51678188 -0.02808389  0.38526674  0.81293932  3.12292755
+levels(cut(x = dat$meanMNase,
+           breaks = c(min(dat$meanMNase, na.rm = T),
+                      sort(dat$meanMNase)[round(1:6*(nrow(dat)/6))])))
+#[1] "(-4.76,-1.17]"    "(-1.17,-0.517]"   "(-0.517,-0.0281]" "(-0.0281,0.385]"
+#[5] "(0.385,0.813]"    "(0.813,3.12]"
+ssID <- split(x = 1:nrow(dat),
+              f = cut(x = dat$meanMNase,
+                      breaks = c(min(dat$meanMNase, na.rm = T),
+                                 sort(dat$meanMNase)[round(1:6*(nrow(dat)/6))])))
+pdf("GLM_binomial_logit_MNase_hexiles_CO_boxplot_inclDNAmeth.pdf")
+boxplot(
+  lapply(ssID, function(x) {
+    sapply(1:100, function(ii) {
+      sum( rbinom(n = length(x), size = 1, prob = glm_predict[x]) ) /
+      sum( dat$width[x] ) * 1e6
+    })
+  }),
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPs+width)^2",
+  xlab = "Nucleosomes hexiles",
+  ylab = "Crossovers per Mb",
+  names = as.character(6:1)
+)
+tco <- sapply(ssID, function(x) {
+  sum(dat$CO[x]) /
+  sum(dat$width[x]) * 1e6
+})
+points(x = 1:length(ssID),
+       y = tco,
+       col = "red", pch = 19)
+legend("topright",
+       legend = c("Observed", "Prediced"),
+       text.col = c("red", "black"), bty = "n")
+dev.off()
+
+
+# Create data object for model but retain rows containing missing DNA methylation data
+# meanDNAmeth not to be included in this model
+dat <- cbind.data.frame(CO = regionsGR %in% COsGR,
+                        meanSPO11 = meanSPO11,
+                        meanMNase = meanMNase,
+                        meanH3K4me3 = meanH3K4me3,
+                        meanDNAmeth = meanDNAmeth,
+                        meanSNPs = meanSNPs,
+                        sumSPO11 = sumSPO11,
+                        sumMNase = sumMNase,
+                        sumH3K4me3 = sumH3K4me3,
+                        sumSNPs = sumSNPs,
+                        width = width(regionsGR))
+
+# Build binomial GLM with "logit" link function
+glmCO <- glm2(formula = CO ~ (meanSPO11 + meanMNase + meanH3K4me3 + meanSNPs + width)^2,
+              family = binomial(link="logit"),
+              control = glm.control(maxit = 2000),
+              data = dat)
+#Warning message:
+#glm.fit2: fitted probabilities numerically 0 or 1 occurred
+glm_stepAIC <- stepAIC(object = glmCO, direction = "both")
+#There were 34 warnings (use warnings() to see them)                                                                                #warnings()                                                                                                                        
 #Warning messages:
-#1: step size truncated due to increasing deviance
-#2: glm.fit2: fitted probabilities numerically 0 or 1 occurred
+#1: glm.fit: fitted probabilities numerically 0 or 1 occurred
+#...
+#34: glm.fit: fitted probabilities numerically 0 or 1 occurred
+print("stepAIC-selected model formula:")
+print(glm_stepAIC$formula)
+glm_select <- glm2(formula = glm_stepAIC$formula,
+                   family = binomial(link="logit"),
+                   data = dat)
+glm_summary <- summary(glm_select)
+glm_coeffs <- glm_summary$coefficients
+glm_predict <- predict(glm_select, type = "response")
+save(glm_stepAIC, file = "GLM_binomial_logit_stepAIC_exclDNAmeth.RData")
+save(glm_select, file = "GLM_binomial_logit_exclDNAmeth.RData")
+save(glm_summary, file = "GLM_binomial_logit_summary_exclDNAmeth.RData")
+write.csv(glm_coeffs, file = "GLM_binomial_logit_coeff_exclDNAmeth.csv")
+save(glm_predict, file = "GLM_binomial_logit_predict_exclDNAmeth.RData")
 
- 
-glmCO <- glm(co~band+sumREC8_ChIP*(gene+promoter+terminator+RC_Helitron+DNA_Pogo+DNA_Tc1+DNA_Mariner+DNA_MuDR+DNA_Harbinger+DNA_HAT+LTR_Copia+DNA_En.Spm+SINE+LINE_L1+LTR_Gypsy+width), family = binomial(link = "logit"), data = dat, control = list(maxit = 50))
-predict1 <- predict(glmCO, type = "response")
-glmSum <- summary(glmCO)
-coeff <- glmSum$coefficients
-save(glmSum, file = paste0(outDir, "GLM_REC8_ChIP_summary.RData"))
-write.csv(coeff, file = paste0(outDir, "GLM_REC8_ChIP_coeffs.csv"))
-save(predict1, file = paste0(outDir, "GLM_REC8_ChIP_predict.RData"))
+# Plot observed and predicted crossovers for regionsGR grouped into hexiles
 
-glmCO <- glm(co~band+sumnuc*(gene+promoter+terminator+RC_Helitron+DNA_Pogo+DNA_Tc1+DNA_Mariner+DNA_MuDR+DNA_Harbinger+DNA_HAT+LTR_Copia+DNA_En.Spm+SINE+LINE_L1+LTR_Gypsy+width), family = binomial(link = "logit"), data = dat, control = list(maxit = 50))
-predict2 <- predict(glmCO, type = "response")
-glmSum <- summary(glmCO)
-coeff <- glmSum$coefficients
-save(glmSum, file = paste0(outDir, "GLM_nuc_summary.RData"))
-write.csv(coeff, file = paste0(outDir, "GLM_nuc_coeffs.csv"))
-save(predict2, file = paste0(outDir, "GLM_nuc_predict.RData"))
-
-glmCO <- glm(co~band+sumspo*(gene+promoter+terminator+RC_Helitron+DNA_Pogo+DNA_Tc1+DNA_Mariner+DNA_MuDR+DNA_Harbinger+DNA_HAT+LTR_Copia+DNA_En.Spm+SINE+LINE_L1+LTR_Gypsy+width), family = binomial(link = "logit"), data = dat, control = list(maxit = 50))
-predict3 <- predict(glmCO, type = "response")
-glmSum <- summary(glmCO)
-coeff <- glmSum$coefficients
-save(glmSum, file = paste0(outDir, "GLM_SPO11-oligos_summary.RData"))
-write.csv(coeff, file = paste0(outDir, "GLM_SPO11-oligos_coeffs.csv"))
-save(predict3, file = paste0(outDir, "GLM_SPO11-oligos_predict.RData"))
-
-glmCO <- glm(co~band+sumMSH4_ChIP*(gene+promoter+terminator+RC_Helitron+DNA_Pogo+DNA_Tc1+DNA_Mariner+DNA_MuDR+DNA_Harbinger+DNA_HAT+LTR_Copia+DNA_En.Spm+SINE+LINE_L1+LTR_Gypsy+width), family = binomial(link = "logit"), data = dat, control = list(maxit = 50))
-predict4 <- predict(glmCO, type = "response")
-glmSum <- summary(glmCO)
-coeff <- glmSum$coefficients
-save(glmSum, file = paste0(outDir, "GLM_MSH4_ChIP_summary.RData"))
-write.csv(coeff, file = paste0(outDir, "GLM_MSH4_ChIP_coeffs.csv"))
-save(predict4, file = paste0(outDir, "GLM_MSH4_ChIP_predict.RData"))
-
-glmCO <- glm(co~band+(sumREC8_ChIP+sumMSH4_ChIP+sumnuc+sumspo)*(gene+promoter+terminator+RC_Helitron+DNA_Pogo+DNA_Tc1+DNA_Mariner+DNA_MuDR+DNA_Harbinger+DNA_HAT+LTR_Copia+DNA_En.Spm+SINE+LINE_L1+LTR_Gypsy+width), family = binomial(link = "logit"), data = dat, control = list(maxit = 50))
-predict5 <- predict(glmCO, type = "response")
-glmSum <- summary(glmCO)
-coeff <- glmSum$coefficients
-save(glmSum, file = paste0(outDir, "GLM_REC8_MSH4_nuc_SPO11_summary.RData"))
-write.csv(coeff, file = paste0(outDir, "GLM_REC8_MSH4_nuc_SPO11_coeffs.csv"))
-save(predict5, file = paste0(outDir, "GLM_REC8_MSH4_nuc_SPO11_predict.RData"))
-
-###################################################
-# plot predicted CO overlaps for annotation class #
-###################################################
-
-#regid <- c(list(geneOverlap, promoterOverlap, terminatorOverlap), lapply(colnames(tesOverlap), function(tesn){tesOverlap[,tesn]}))
-#names(regid) <- c("gene", "promoter", "terminator", colnames(tesOverlap))
-#pdf(file = paste0(outDir, "GLM_REC8_ChIP_annotation_CO_boxplot.pdf"))
-#boxplot(lapply(regid, function(x) sapply(1:100, function(ii) sum(rbinom(sum(x), 1, prob = predict1[x]))/sum(dat$width[x])*1e6)), main = "predicted CO/Mb by annotation")
-#tco <- sapply(regid, function(x) sum(dat$co[x])/sum(dat$width[x])*1e6)
-#points(x = 1:length(regid), y = tco, col = "red", pch = 19)
-#dev.off()
-
-#####################################################
-# plot predicted CO for regionsGR by REC8_ChIP hexile #
-#####################################################
-
-#sort(dat$meanREC8_ChIP)[round(0:7*(nrow(dat)/7))]
-#[1]    4.384697    6.054059    7.394007    8.744343   10.205637   12.277201
-#[7] 3242.308239
-#levels(cut(dat$meanREC8_ChIP, breaks = sort(dat$meanREC8_ChIP)[round(0:7*(nrow(dat)/7))]))
-#[1] "(4.38,6.05]"     "(6.05,7.39]"     "(7.39,8.74]"     "(8.74,10.2]"    
-#[5] "(10.2,12.3]"     "(12.3,3.24e+03]"
-#length(dat$meanREC8_ChIP[dat$meanREC8_ChIP < 4.384697])
-#[1] 68613
-# omits 68613 of 480348 regionsGR for which meanREC8_ChIP < 4.384697
-# so changed below from breaks = sort(dat$meanREC8_ChIP)[round(0:7*(nrow(dat)/7))] to breaks = c(0, sort(dat$meanREC8_ChIP)[round(0:6*(nrow(dat)/6))]) 
-# so that...
-#levels(cut(dat$meanREC8_ChIP, breaks = c(0, sort(dat$meanREC8_ChIP)[round(0:6*(nrow(dat)/6))])))
-#[1] "(0,4.75]"        "(4.75,6.52]"     "(6.52,8.07]"     "(8.07,9.68]"    
-#[5] "(9.68,11.8]"     "(11.8,3.24e+03]"
-ssID <- split(1:nrow(dat), cut(dat$meanREC8_ChIP, breaks = c(0, sort(dat$meanREC8_ChIP)[round(0:6*(nrow(dat)/6))])))
-pdf(file = paste0(outDir, "GLM_REC8_ChIP_hexiles_CO_boxplot.pdf"))
-boxplot(lapply(ssID, function(x) sapply(1:100, function(ii) sum(rbinom(length(x), 1, prob = predict1[x]))/sum(dat$width[x])*1e6)), main = "GLM: CO~band+REC8 ChIP*(annotation+width)", xlab = "REC8 ChIP hexiles", ylab = "Number of crossovers per Mb", names = c("1", "2", "3", "4", "5", "6"))
-tco <- sapply(ssID, function(x) sum(dat$co[x])/sum(dat$width[x])*1e6)
-points(x = 1:length(ssID), y = tco, col = "red", pch = 19)
-legend("top", legend = c("Observed", "Predicted"), text.col = c("red", "black"), bty = "n")
+# meanSPO11 hexiles
+sort(dat$meanSPO11)[round(1:6*(nrow(dat)/6))]
+#[1] -1.1570574 -0.6159327 -0.1950331  0.2410043  0.7693476  5.2923997
+levels(cut(x = dat$meanSPO11,
+           breaks = c(min(dat$meanSPO11, na.rm = T),
+                      sort(dat$meanSPO11)[round(1:6*(nrow(dat)/6))])))
+#[1] "(-4.47,-1.16]"   "(-1.16,-0.616]"  "(-0.616,-0.195]" "(-0.195,0.241]"
+#[5] "(0.241,0.769]"   "(0.769,5.29]"
+ssID <- split(x = 1:nrow(dat),
+              f = cut(x = dat$meanSPO11,
+                      breaks = c(min(dat$meanSPO11, na.rm = T),
+                                 sort(dat$meanSPO11)[round(1:6*(nrow(dat)/6))])))
+pdf("GLM_binomial_logit_SPO11_hexiles_CO_boxplot_exclDNAmeth.pdf")
+boxplot(
+  lapply(ssID, function(x) {
+    sapply(1:100, function(ii) {
+      sum( rbinom(n = length(x), size = 1, prob = glm_predict[x]) ) /
+      sum( dat$width[x] ) * 1e6
+    })
+  }),
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+SNPs+width)^2",
+  xlab = "SPO11-1-oligo hexiles",
+  ylab = "Crossovers per Mb",
+  names = as.character(6:1)
+)
+tco <- sapply(ssID, function(x) {
+  sum(dat$CO[x]) /
+  sum(dat$width[x]) * 1e6
+})
+points(x = 1:length(ssID),
+       y = tco,
+       col = "red", pch = 19)
+legend("topleft",
+       legend = c("Observed", "Prediced"),
+       text.col = c("red", "black"), bty = "n")
 dev.off()
 
-ssID <- split(1:nrow(dat), cut(dat$meanREC8_ChIP, breaks = sort(dat$meanREC8_ChIP)[round(0:7*(nrow(dat)/7))]))
-pdf(file = paste0(outDir, "GLM_REC8_ChIP_hexiles_CO_boxplot_lessnoise?.pdf"))
-boxplot(lapply(ssID, function(x) sapply(1:100, function(ii) sum(rbinom(length(x), 1, prob = predict1[x]))/sum(dat$width[x])*1e6)), main = "GLM: CO~band+REC8 ChIP*(annotation+width)", xlab = "REC8 ChIP hexiles", ylab = "Number of crossovers per Mb", names = c("1", "2", "3", "4", "5", "6"))
-tco <- sapply(ssID, function(x) sum(dat$co[x])/sum(dat$width[x])*1e6)
-points(x = 1:length(ssID), y = tco, col = "red", pch = 19)
-legend("top", legend = c("Observed", "Predicted"), text.col = c("red", "black"), bty = "n")
+# meanSNPs hexiles
+sort(dat$meanSNPs)[round(1:6*(nrow(dat)/6))]
+#[1] 0.00617284 0.01532567 0.03174603 0.06666667 0.17647059 1.00000000
+levels(cut(x = dat$meanSNPs,
+           breaks = c(min(dat$meanSNPs, na.rm = T),
+                      sort(dat$meanSNPs)[round(1:6*(nrow(dat)/6))])))
+#[1] "(1.57e-05,0.00617]" "(0.00617,0.0153]"   "(0.0153,0.0317]"
+#[4] "(0.0317,0.0667]"    "(0.0667,0.176]"     "(0.176,1]"
+ssID <- split(x = 1:nrow(dat),
+              f = cut(x = dat$meanSNPs,
+                      breaks = c(min(dat$meanSNPs, na.rm = T),
+                                 sort(dat$meanSNPs)[round(1:6*(nrow(dat)/6))])))
+pdf("GLM_binomial_logit_SNP_hexiles_CO_boxplot_exclDNAmeth.pdf")
+boxplot(
+  lapply(ssID, function(x) {
+    sapply(1:100, function(ii) {
+      sum( rbinom(n = length(x), size = 1, prob = glm_predict[x]) ) /
+      sum( dat$width[x] ) * 1e6
+    })
+  }),
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+SNPs+width)^2",
+  xlab = "SNP hexiles",
+  ylab = "Crossovers per Mb",
+  names = as.character(6:1)
+)
+tco <- sapply(ssID, function(x) {
+  sum(dat$CO[x]) /
+  sum(dat$width[x]) * 1e6
+})
+points(x = 1:length(ssID),
+       y = tco,
+       col = "red", pch = 19)
+legend("topleft",
+       legend = c("Observed", "Prediced"),
+       text.col = c("red", "black"), bty = "n")
 dev.off()
 
-#######################################################
-# plot predicted CO for regionsGR by nucleosomes hexile #
-#######################################################
-
-ssID <- split(1:nrow(dat), cut(dat$meannuc, breaks = c(0, sort(dat$meannuc)[round(0:6*(nrow(dat)/6))])))
-pdf(file = paste0(outDir, "GLM_nuc_hexiles_CO_boxplot.pdf"))
-tco <- sapply(ssID, function(x) sum(dat$co[x])/sum(dat$width[x])*1e6)
-boxplot(lapply(ssID, function(x) sapply(1:100, function(ii) sum(rbinom(length(x), 1, prob = predict2[x]))/sum(dat$width[x])*1e6)), main = "GLM: CO~band+nucleosomes*(annotation+width)", xlab = "Nucleosomes hexiles", ylab = "Number of crossovers per Mb", names = c("1", "2", "3", "4", "5", "6"), ylim = c(min(tco), 40))
-points(x = 1:length(ssID), y = tco, col = "red", pch = 19)
-legend("top", legend = c("Observed", "Predicted"), text.col = c("red", "black"), bty = "n")
+# meanMNase hexiles
+sort(dat$meanMNase)[round(1:6*(nrow(dat)/6))]
+#[1] -1.4987684 -0.7261932 -0.1662702  0.3011784  0.7722004  3.8346129
+levels(cut(x = dat$meanMNase,
+           breaks = c(min(dat$meanMNase, na.rm = T),
+                      sort(dat$meanMNase)[round(1:6*(nrow(dat)/6))])))
+#[1] "(-4.76,-1.5]"    "(-1.5,-0.726]"   "(-0.726,-0.166]" "(-0.166,0.301]"
+#[5] "(0.301,0.772]"   "(0.772,3.83]"
+ssID <- split(x = 1:nrow(dat),
+              f = cut(x = dat$meanMNase,
+                      breaks = c(min(dat$meanMNase, na.rm = T),
+                                 sort(dat$meanMNase)[round(1:6*(nrow(dat)/6))])))
+pdf("GLM_binomial_logit_MNase_hexiles_CO_boxplot_exclDNAmeth.pdf")
+boxplot(
+  lapply(ssID, function(x) {
+    sapply(1:100, function(ii) {
+      sum( rbinom(n = length(x), size = 1, prob = glm_predict[x]) ) /
+      sum( dat$width[x] ) * 1e6
+    })
+  }),
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+SNPs+width)^2",
+  xlab = "Nucleosomes hexiles",
+  ylab = "Crossovers per Mb",
+  names = as.character(6:1)
+)
+tco <- sapply(ssID, function(x) {
+  sum(dat$CO[x]) /
+  sum(dat$width[x]) * 1e6
+})
+points(x = 1:length(ssID),
+       y = tco,
+       col = "red", pch = 19)
+legend("topright",
+       legend = c("Observed", "Prediced"),
+       text.col = c("red", "black"), bty = "n")
 dev.off()
-
-ssID <- split(1:nrow(dat), cut(dat$meannuc, breaks = sort(dat$meannuc)[round(0:7*(nrow(dat)/7))]))
-pdf(file = paste0(outDir, "GLM_nuc_hexiles_CO_boxplot_lessnoise?.pdf"))
-tco <- sapply(ssID, function(x) sum(dat$co[x])/sum(dat$width[x])*1e6)
-boxplot(lapply(ssID, function(x) sapply(1:100, function(ii) sum(rbinom(length(x), 1, prob = predict2[x]))/sum(dat$width[x])*1e6)), main = "GLM: CO~band+nucleosomes*(annotation+width)", xlab = "Nucleosomes hexiles", ylab = "Number of crossovers per Mb", names = c("1", "2", "3", "4", "5", "6"), ylim = c(min(tco), max(tco)))
-points(x = 1:length(ssID), y = tco, col = "red", pch = 19)
-legend("top", legend = c("Observed", "Predicted"), text.col = c("red", "black"), bty = "n")
-dev.off()
-
-##########################################################
-# plot predicted CO for regionsGR by SPO11-1-oligos hexile #
-##########################################################
-
-ssID <- split(1:nrow(dat), cut(dat$meanspo, breaks = c(0, sort(dat$meanspo)[round(0:6*(nrow(dat)/6))])))
-pdf(file = paste0(outDir, "GLM_SPO11-1-oligos_hexiles_CO_boxplot.pdf"))
-tco <- sapply(ssID, function(x) sum(dat$co[x])/sum(dat$width[x])*1e6)
-boxplot(lapply(ssID, function(x) sapply(1:100, function(ii) sum(rbinom(length(x), 1, prob = predict3[x]))/sum(dat$width[x])*1e6)), main = "GLM: CO~band+SPO11-1-oligos*(annotation+width)", xlab = "SPO11-1-oligos hexiles", ylab = "Number of crossovers per Mb", names = c("1", "2", "3", "4", "5", "6"), ylim = c(min(tco), 53))
-points(x = 1:length(ssID), y = tco, col = "red", pch = 19)
-legend("top", legend = c("Observed", "Predicted"), text.col = c("red", "black"), bty = "n")
-dev.off()
-
-ssID <- split(1:nrow(dat), cut(dat$meanspo, breaks = sort(dat$meanspo)[round(0:7*(nrow(dat)/7))]))
-pdf(file = paste0(outDir, "GLM_SPO11-1-oligos_hexiles_CO_boxplot_lessnoise?.pdf"))
-tco <- sapply(ssID, function(x) sum(dat$co[x])/sum(dat$width[x])*1e6)
-boxplot(lapply(ssID, function(x) sapply(1:100, function(ii) sum(rbinom(length(x), 1, prob = predict3[x]))/sum(dat$width[x])*1e6)), main = "GLM: CO~band+SPO11-1-oligos*(annotation+width)", xlab = "SPO11-1-oligos hexiles", ylab = "Number of crossovers per Mb", names = c("1", "2", "3", "4", "5", "6"))
-points(x = 1:length(ssID), y = tco, col = "red", pch = 19)
-legend("top", legend = c("Observed", "Predicted"), text.col = c("red", "black"), bty = "n")
-dev.off()
-
-#####################################################
-# plot predicted CO for regionsGR by MSH4_ChIP hexile #
-#####################################################
-
-ssID <- split(1:nrow(dat), cut(dat$meanMSH4_ChIP, breaks = c(0, sort(dat$meanMSH4_ChIP)[round(0:6*(nrow(dat)/6))])))
-pdf(file = paste0(outDir, "GLM_MSH4_ChIP_hexiles_CO_boxplot.pdf"))
-boxplot(lapply(ssID, function(x) sapply(1:100, function(ii) sum(rbinom(length(x), 1, prob = predict4[x]))/sum(dat$width[x])*1e6)), main = "GLM: CO~band+MSH4 ChIP*(annotation+width)", xlab = "MSH4 ChIP hexiles", ylab = "Number of crossovers per Mb", names = c("1", "2", "3", "4", "5", "6"))
-tco <- sapply(ssID, function(x) sum(dat$co[x])/sum(dat$width[x])*1e6)
-points(x = 1:length(ssID), y = tco, col = "red", pch = 19)
-legend("top", legend = c("Observed", "Predicted"), text.col = c("red", "black"), bty = "n")
-dev.off()
-
-ssID <- split(1:nrow(dat), cut(dat$meanMSH4_ChIP, breaks = sort(dat$meanMSH4_ChIP)[round(0:7*(nrow(dat)/7))]))
-pdf(file = paste0(outDir, "GLM_MSH4_ChIP_hexiles_CO_boxplot_lessnoise?.pdf"))
-boxplot(lapply(ssID, function(x) sapply(1:100, function(ii) sum(rbinom(length(x), 1, prob = predict4[x]))/sum(dat$width[x])*1e6)), main = "GLM: CO~band+MSH4 ChIP*(annotation+width)", xlab = "MSH4 ChIP hexiles", ylab = "Number of crossovers per Mb", names = c("1", "2", "3", "4", "5", "6"))
-tco <- sapply(ssID, function(x) sum(dat$co[x])/sum(dat$width[x])*1e6)
-points(x = 1:length(ssID), y = tco, col = "red", pch = 19)
-legend("top", legend = c("Observed", "Predicted"), text.col = c("red", "black"), bty = "n")
-dev.off()
-
-##########################################
-# plot predicted CO for chromosome bands #
-##########################################
-
-pdf(file = paste0(outDir, "GLM_REC8_ChIP_chrbands_CO_boxplot.pdf"), height = 6, width = 9)
-boxplot(lapply(split(1:nrow(dat), dat$band), function(x) sapply(1:100, function(ii) sum(rbinom(length(x), 1, prob = predict1[x]))/sum(dat$width[x])*1e6)), main = "GLM: CO~band+REC8 ChIP*(annotation+width)", xlab = "2-Mb chromosome bands", ylab = "Number of crossovers per Mb")
-ssb <- split(1:nrow(dat), dat$band)
-points(x = unique(dat$band), y = sapply(ssb, function(x) sum(dat$co[x])/sum(dat$width[x])*1e6), col = "red", pch = 19)
-abline(v = c(8, 17, 31, 37, 50), lty = 2, lwd = 2.5)
-legend("topleft", legend = c("Observed", "Predicted"), text.col = c("red", "black"), bty = "n")
-dev.off()
-
-pdf(file = paste0(outDir, "GLM_REC8_MSH4_nuc_SPO11_chrbands_CO_boxplot.pdf"), height = 6, width = 9)
-boxplot(lapply(split(1:nrow(dat), dat$band), function(x) sapply(1:100, function(ii) sum(rbinom(length(x), 1, prob = predict5[x]))/sum(dat$width[x])*1e6)), main = "GLM: CO~band+(REC8 ChIP+MSH4 ChIP+nucleosomes+SPO11-1-oligos)*(annotation+width)", xlab = "2-Mb chromosome bands", ylab = "Number of crossovers per Mb")
-ssb <- split(1:nrow(dat), dat$band)
-points(x = unique(dat$band), y = sapply(ssb, function(x) sum(dat$co[x])/sum(dat$width[x])*1e6), col = "red", pch = 19)
-abline(v = c(8, 17, 31, 37, 50), lty = 2, lwd = 2.5)
-legend("topleft", legend = c("Observed", "Predicted"), text.col = c("red", "black"), bty = "n")
-dev.off()
-
-#########################################
-# plot predicted CO for each SNP region #
-#########################################
-
-#pdf(file = paste0(outDir, "GLM_REC8_ChIP_snpreg_CO.pdf"))
-#xy <- cbind(x = cumsum(width(regionsGR)), y = (predict1))
-#xy <- cbind(x = cumsum(width(regionsGR)), y = (predict1))
-#xy <- cbind(x = cumsum(width(regionsGR)), y = (predict1))
-#xy <- cbind(x = cumsum(width(regionsGR)), y = (predict1))
-#xy <- cbind(x = cumsum(width(regionsGR)), y = (predict1))
-#xy <- cbind(x = cumsum(width(regionsGR)), y = (predict1))
-#plot(xy[xy[,2]>0.01,], pch = ".", main = "Likelihood of CO at each SNP window");
-#abline(v = cumsum(chrlens), col = "red", lty = 3)
-#abline(v = c(0, cumsum(chrlens)[-5])+start(centGR), col = "blue", lty = 3)
-#abline(v = c(0, cumsum(chrlens)[-5])+end(centGR), col = "blue", lty = 3)
-#dev.off()
-
-sessionInfo()
-
