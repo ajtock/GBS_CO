@@ -511,7 +511,7 @@ legend("topright",
        text.col = c("red", "black"), bty = "n")
 dev.off()
 
-# meanDNAmeth hexiles
+# meanDNAmeth quintiles
 sort(dat$meanDNAmeth)[round(1:6*(nrow(dat)/6))]
 #[1] 0.000000000 0.002414189 0.014161412 0.186714907 0.442316717 1.000000000
 levels(cut(x = dat$meanDNAmeth,
@@ -533,6 +533,44 @@ boxplot(
   }),
   main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPs+width)^2",
   xlab = "DNA methylation quintiles",
+  ylab = "Crossovers per Mb",
+  cex.axis = 0.5
+#  names = as.character(6:1)
+)
+tco <- sapply(ssID, function(x) {
+  sum(dat$CO[x]) /
+  sum(dat$width[x]) * 1e6
+})
+points(x = 1:length(ssID),
+       y = tco,
+       col = "red", pch = 19)
+legend("topright",
+       legend = c("Observed", "Prediced"),
+       text.col = c("red", "black"), bty = "n")
+dev.off()
+
+# width hexiles
+sort(dat$width)[round(1:6*(nrow(dat)/6))]
+#[1]     57    107    181    314    634 127250
+levels(cut(x = dat$width,
+           breaks = c(min(dat$width, na.rm = T),
+                      sort(dat$width)[round(1:6*(nrow(dat)/6))])))
+#[1] "(4,57]"         "(57,107]"       "(107,181]"      "(181,314]"
+#[5] "(314,634]"      "(634,1.27e+05]"
+ssID <- split(x = 1:nrow(dat),
+              f = cut(x = dat$width,
+                      breaks = c(min(dat$width, na.rm = T),
+                                 sort(dat$width)[round(1:6*(nrow(dat)/6))])))
+pdf("GLM_binomial_logit_width_hexiles_CO_boxplot.pdf")
+boxplot(
+  lapply(ssID, function(x) {
+    sapply(1:100, function(ii) {
+      sum( rbinom(n = length(x), size = 1, prob = glm_predict[x]) ) /
+      sum( dat$width[x] ) * 1e6
+    })
+  }),
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPs+width)^2",
+  xlab = "Width hexiles",
   ylab = "Crossovers per Mb",
   cex.axis = 0.5
 #  names = as.character(6:1)
