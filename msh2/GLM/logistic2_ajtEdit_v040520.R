@@ -296,6 +296,8 @@ print(dim(allSNPs))
 allSNPsGR <- GRanges(seqnames = paste0("Chr", allSNPs[,1]),
                      ranges = IRanges(start = allSNPs[,2],
                                       width = 1))
+# Count SNPs within each interval in which a crossover could potentially have been detected
+# and divide by the width of the corresponding interval
 meanSNPs <- NULL
 sumSNPs <- NULL
 for(x in 1:5) {
@@ -308,6 +310,36 @@ for(x in 1:5) {
   meanSNPs <- c(meanSNPs, winSNPs/width(windowsGR))
   sumSNPs <- c(sumSNPs, winSNPs)
 } 
+
+# Count SNPs in windows if width winSize nt, with a step of stepSize nt
+winSize <- 10000
+stepSize <- 1
+for(x in 1:5) {
+  winStarts <- seq(from = 1,
+                   to = chrLens[x]-winSize,
+                   by = stepSize)
+  winEnds <- c(seq(from = winStarts[1]+winSize-1,
+                   to = chrLens[x],
+                   by = stepSize),
+               chrLens[x])
+  # Define sliding windows of width winSize nt,
+  # with a step of stepSize nt
+  winStarts <- seq(from = 1,
+                   to = length(genome[[i]])-winSize,
+                   by = stepSize)
+  winEnds <- c(seq(from = winStarts[1]+winSize-1,
+                   to = length(genome[[i]]),
+                   by = stepSize),
+               length(genome[[i]]))
+  if(length(genome[[i]])-winStarts[length(winStarts)] >= winSize) {
+    winStarts <- c(winStarts,
+                   winStarts[length(winStarts)]+stepSize)
+  }
+  winStringSet <- DNAStringSet(x = genome[[i]],
+                               start = winStarts,
+                               end = winEnds)
+
+
 
 # Create data object for model
 dat <- cbind.data.frame(CO = regionsGR %in% COsGR,
@@ -351,11 +383,13 @@ glm_select <- glm2(formula = glm_stepAIC$formula,
 glm_summary <- summary(glm_select)
 glm_coeffs <- glm_summary$coefficients
 glm_predict <- predict(glm_select, type = "response")
+glm_formula <- glm_select$formula
 save(glm_stepAIC, file = "GLM_binomial_logit_stepAIC.RData")
 save(glm_select, file = "GLM_binomial_logit.RData")
 save(glm_summary, file = "GLM_binomial_logit_summary.RData")
 write.csv(glm_coeffs, file = "GLM_binomial_logit_coeff.csv")
 save(glm_predict, file = "GLM_binomial_logit_predict.RData")
+save(glm_formula, file = "GLM_binomial_logit_stepAIC_selected_formula.RData")
 
 # Plot observed and predicted crossovers for regionsGR grouped into hexiles
 
