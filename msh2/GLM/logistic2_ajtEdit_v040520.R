@@ -314,32 +314,58 @@ for(x in 1:5) {
 # Count SNPs in windows if width winSize nt, with a step of stepSize nt
 winSize <- 10000
 stepSize <- 1
+SNPsPB <- data.frame()
 for(x in 1:5) {
-  winStarts <- seq(from = 1,
-                   to = chrLens[x]-winSize,
-                   by = stepSize)
-  winEnds <- c(seq(from = winStarts[1]+winSize-1,
-                   to = chrLens[x],
-                   by = stepSize),
-               chrLens[x])
   # Define sliding windows of width winSize nt,
   # with a step of stepSize nt
+  ## Note: the commented-out code would create windows of winSize nt only,
+  ## whereas the activate code creates windows decreasing from winSize nt to stepSize nt
+  ## at the right-hand end of each chromosome ( from chrLens[x]-winSize to chrLens[x] ),
   winStarts <- seq(from = 1,
-                   to = length(genome[[i]])-winSize,
+                   to = chrLens[x],
+#                   to = chrLens[x]-winSize,
                    by = stepSize)
-  winEnds <- c(seq(from = winStarts[1]+winSize-1,
-                   to = length(genome[[i]]),
-                   by = stepSize),
-               length(genome[[i]]))
-  if(length(genome[[i]])-winStarts[length(winStarts)] >= winSize) {
-    winStarts <- c(winStarts,
-                   winStarts[length(winStarts)]+stepSize)
-  }
-  winStringSet <- DNAStringSet(x = genome[[i]],
-                               start = winStarts,
-                               end = winEnds)
+  stopifnot(winStarts[length(winStarts)] == chrLens[x])
+#  if(chrLens[x] - winStarts[length(winStarts)] >= winSize) {
+#    winStarts <- c(winStarts,
+#                   winStarts[length(winStarts)]+stepSize)
+#  }
+  winEnds <- seq(from = winStarts[1]+winSize-1,
+                 to = chrLens[x],
+                 by = stepSize)
+  stopifnot(winEnds[length(winEnds)] == chrLens[x])
+  winEnds <- c(winEnds,
+               rep(chrLens[x], times = length(winStarts)-length(winEnds)))
+  stopifnot(length(winStarts) == length(winEnds))
 
+  windowsGR <- GRanges(seqnames = chrs[x],
+                       ranges = IRanges(start = winStarts,
+                                        end = winEnds),
+                       strand = "*")
 
+  # Count SNPs in sliding windows
+  chr_allSNPsGR <- allSNPsGR[seqnames(allSNPsGR) == chrs[x]]
+  winSNPs <- countOverlaps(query = windowsGR,
+                           subject = chr_allSNPsGR,
+                           type = "any",
+                           ignore.strand = TRUE)
+  SNPsPBDF <- data.frame(chr = chrs[x],
+                         signal = winSNPs/width(windowsGR)) 
+  SNPsPB <- rbind(SNPsPB, SNPsPBDF) 
+}
+
+splitSNPsPB <- list()
+for(x in 1:5) {
+  chr_SNPsPB <- SNPsPB[SNPsPB$chr == chrs[x],]$signal
+  chr_regionsGR <- regionsGR[seqnames(regionsGR) == chrs[x]]
+  splitSNPsPB <- c(splitSNPsPB,
+                   split(x = chr_SNPsPB,
+                         f = c(rep(1:length(chr_regionsGR),
+                                   times = width(chr_regionsGR)-1),
+                               length(chr_regionsGR))))
+}
+meanSNPsPB <- sapply(splitSNPsPB, mean)
+sumSNPsPB <- sapply(splitSNPsPB, sum)
 
 # Create data object for model
 dat <- cbind.data.frame(CO = regionsGR %in% COsGR,
@@ -348,10 +374,12 @@ dat <- cbind.data.frame(CO = regionsGR %in% COsGR,
                         meanH3K4me3 = meanH3K4me3,
                         meanDNAmeth = meanDNAmeth,
                         meanSNPs = meanSNPs,
+                        meanSNPsPB = meanSNPsPB,
                         sumSPO11 = sumSPO11,
                         sumMNase = sumMNase,
                         sumH3K4me3 = sumH3K4me3,
                         sumSNPs = sumSNPs,
+                        sumSNPsPB = sumSNPsPB,
                         width = width(regionsGR))
 save(dat, file = "df_for_GLM.RData")
 
@@ -359,9 +387,12 @@ save(dat, file = "df_for_GLM.RData")
 dat <- dat[!is.na(dat$meanDNAmeth),]
 
 # Build binomial GLM with "logit" link function
-glmCO <- glm2(formula = CO ~ (meanSPO11 + meanMNase + meanH3K4me3 + meanDNAmeth + meanSNPs + width)^2,
+glmCO <- glm2(formula = CO ~ (meanSPO11 + meanMNase + meanH3K4me3 + meanDNAmeth + meanSNPsPB + width)^2,
               family = binomial(link="logit"),
+              control = glm.control(maxit = 100000),
               data = dat)
+#Warning message:
+#glm.fit2: fitted probabilities numerically 0 or 1 occurred
 ## Variables as in GLM built by Ian for Choi et al. (2018) Genome Res.:
 #glmCO <- glm2(formula = CO ~ meanSPO11 + meanMNase + meanH3K4me3 + meanDNAmeth + width +
 #              meanSPO11:meanMNase + meanSPO11:meanH3K4me3 + meanSPO11:width +
@@ -379,17 +410,18 @@ print("stepAIC-selected model formula:")
 print(glm_stepAIC$formula)
 glm_select <- glm2(formula = glm_stepAIC$formula, 
                    family = binomial(link="logit"),
+                   control = glm.control(maxit = 100000),
                    data = dat)
 glm_summary <- summary(glm_select)
 glm_coeffs <- glm_summary$coefficients
 glm_predict <- predict(glm_select, type = "response")
 glm_formula <- glm_select$formula
-save(glm_stepAIC, file = "GLM_binomial_logit_stepAIC.RData")
-save(glm_select, file = "GLM_binomial_logit.RData")
-save(glm_summary, file = "GLM_binomial_logit_summary.RData")
-write.csv(glm_coeffs, file = "GLM_binomial_logit_coeff.csv")
-save(glm_predict, file = "GLM_binomial_logit_predict.RData")
-save(glm_formula, file = "GLM_binomial_logit_stepAIC_selected_formula.RData")
+save(glm_stepAIC, file = "GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_stepAIC.RData")
+save(glm_select, file = "GLM_binomial_logit_10kbWin_1bpStep_SNPsPB.RData")
+save(glm_summary, file = "GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_summary.RData")
+write.csv(glm_coeffs, file = "GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_coeff.csv")
+save(glm_predict, file = "GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_predict.RData")
+save(glm_formula, file = "GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_stepAIC_selected_formula.RData")
 
 # Plot observed and predicted crossovers for regionsGR grouped into hexiles
 
@@ -405,7 +437,7 @@ ssID <- split(x = 1:nrow(dat),
               f = cut(x = dat$meanSPO11,
                       breaks = c(min(dat$meanSPO11, na.rm = T),
                                  sort(dat$meanSPO11)[round(1:6*(nrow(dat)/6))])))
-pdf("GLM_binomial_logit_SPO11_hexiles_CO_boxplot.pdf")
+pdf("GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_SPO11_hexiles_CO_boxplot.pdf")
 boxplot(
   lapply(ssID, function(x) {
     sapply(1:100, function(ii) {
@@ -413,7 +445,7 @@ boxplot(
       sum( dat$width[x] ) * 1e6
     })
   }),
-  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPs+width)^2",
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPsPB+width)^2",
   xlab = "SPO11-1-oligo hexiles",
   ylab = "Crossovers per Mb",
   cex.axis = 0.5
@@ -431,19 +463,19 @@ legend("topleft",
        text.col = c("red", "black"), bty = "n")
 dev.off()
 
-# meanSNPs hexiles
-sort(dat$meanSNPs)[round(1:6*(nrow(dat)/6))]
-#[1] 0.003367003 0.006756757 0.011695906 0.019607843 0.036363636 0.600000000
-levels(cut(x = dat$meanSNPs,
-           breaks = c(min(dat$meanSNPs, na.rm = T),
-                      sort(dat$meanSNPs)[round(1:6*(nrow(dat)/6))])))
-#[1] "(1.57e-05,0.00337]" "(0.00337,0.00676]"  "(0.00676,0.0117]"
-#[4] "(0.0117,0.0196]"    "(0.0196,0.0364]"    "(0.0364,0.6]"
+# meanSNPsPB hexiles
+sort(dat$meanSNPsPB)[round(1:6*(nrow(dat)/6))]
+#[1] 0.002355150 0.003801124 0.005421569 0.007500909 0.010410427 0.038117165
+levels(cut(x = dat$meanSNPsPB,
+           breaks = c(min(dat$meanSNPsPB, na.rm = T),
+                      sort(dat$meanSNPsPB)[round(1:6*(nrow(dat)/6))])))
+#[1] "(1.17e-06,0.00236]" "(0.00236,0.0038]"   "(0.0038,0.00542]"
+#[4] "(0.00542,0.0075]"   "(0.0075,0.0104]"    "(0.0104,0.0381]"
 ssID <- split(x = 1:nrow(dat),
-              f = cut(x = dat$meanSNPs,
-                      breaks = c(min(dat$meanSNPs, na.rm = T),
-                                 sort(dat$meanSNPs)[round(1:6*(nrow(dat)/6))])))
-pdf("GLM_binomial_logit_SNP_hexiles_CO_boxplot.pdf")
+              f = cut(x = dat$meanSNPsPB,
+                      breaks = c(min(dat$meanSNPsPB, na.rm = T),
+                                 sort(dat$meanSNPsPB)[round(1:6*(nrow(dat)/6))])))
+pdf("GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_SNPsPerBase_hexiles_CO_boxplot.pdf")
 boxplot(
   lapply(ssID, function(x) {
     sapply(1:100, function(ii) {
@@ -451,8 +483,8 @@ boxplot(
       sum( dat$width[x] ) * 1e6
     })
   }),
-  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPs+width)^2",
-  xlab = "SNP hexiles",
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPsPB+width)^2",
+  xlab = "SNPs per base hexiles",
   ylab = "Crossovers per Mb",
   cex.axis = 0.5
 #  names = as.character(6:1)
@@ -481,7 +513,7 @@ ssID <- split(x = 1:nrow(dat),
               f = cut(x = dat$meanMNase,
                       breaks = c(min(dat$meanMNase, na.rm = T),
                                  sort(dat$meanMNase)[round(1:6*(nrow(dat)/6))])))
-pdf("GLM_binomial_logit_MNase_hexiles_CO_boxplot.pdf")
+pdf("GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_MNase_hexiles_CO_boxplot.pdf")
 boxplot(
   lapply(ssID, function(x) {
     sapply(1:100, function(ii) {
@@ -489,7 +521,7 @@ boxplot(
       sum( dat$width[x] ) * 1e6
     })
   }),
-  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPs+width)^2",
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPsPB+width)^2",
   xlab = "Nucleosomes hexiles",
   ylab = "Crossovers per Mb",
   cex.axis = 0.5
@@ -519,7 +551,7 @@ ssID <- split(x = 1:nrow(dat),
               f = cut(x = dat$meanH3K4me3,
                       breaks = c(min(dat$meanH3K4me3, na.rm = T),
                                  sort(dat$meanH3K4me3)[round(1:6*(nrow(dat)/6))])))
-pdf("GLM_binomial_logit_H3K4me3_hexiles_CO_boxplot.pdf")
+pdf("GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_H3K4me3_hexiles_CO_boxplot.pdf")
 boxplot(
   lapply(ssID, function(x) {
     sapply(1:100, function(ii) {
@@ -527,7 +559,7 @@ boxplot(
       sum( dat$width[x] ) * 1e6
     })
   }),
-  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPs+width)^2",
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPsPB+width)^2",
   xlab = "H3K4me3 hexiles",
   ylab = "Crossovers per Mb",
   cex.axis = 0.5
@@ -557,7 +589,7 @@ ssID <- split(x = 1:nrow(dat),
               f = cut(x = dat$meanDNAmeth,
                       breaks = c(
                                  sort(dat$meanDNAmeth)[round(1:6*(nrow(dat)/6))])))
-pdf("GLM_binomial_logit_DNAmeth_quintiles_CO_boxplot.pdf")
+pdf("GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_DNAmeth_quintiles_CO_boxplot.pdf")
 boxplot(
   lapply(ssID, function(x) {
     sapply(1:100, function(ii) {
@@ -565,7 +597,7 @@ boxplot(
       sum( dat$width[x] ) * 1e6
     })
   }),
-  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPs+width)^2",
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPsPB+width)^2",
   xlab = "DNA methylation quintiles",
   ylab = "Crossovers per Mb",
   cex.axis = 0.5
@@ -595,7 +627,7 @@ ssID <- split(x = 1:nrow(dat),
               f = cut(x = dat$width,
                       breaks = c(min(dat$width, na.rm = T),
                                  sort(dat$width)[round(1:6*(nrow(dat)/6))])))
-pdf("GLM_binomial_logit_width_hexiles_CO_boxplot.pdf")
+pdf("GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_width_hexiles_CO_boxplot.pdf")
 boxplot(
   lapply(ssID, function(x) {
     sapply(1:100, function(ii) {
@@ -603,7 +635,7 @@ boxplot(
       sum( dat$width[x] ) * 1e6
     })
   }),
-  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPs+width)^2",
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPsPB+width)^2",
   xlab = "Width hexiles",
   ylab = "Crossovers per Mb",
   cex.axis = 0.5
