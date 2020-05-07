@@ -312,7 +312,7 @@ for(x in 1:5) {
 } 
 
 # Count SNPs in windows if width winSize nt, with a step of stepSize nt
-winSize <- 10000
+winSize <- 1000
 stepSize <- 1
 SNPsPB <- data.frame()
 for(x in 1:5) {
@@ -381,7 +381,7 @@ dat <- cbind.data.frame(CO = regionsGR %in% COsGR,
                         sumSNPs = sumSNPs,
                         sumSNPsPB = sumSNPsPB,
                         width = width(regionsGR))
-save(dat, file = "df_for_GLM.RData")
+save(dat, file = "df_for_GLM_binomial_logit_1kbWin_1bpStep_SNPsPB.RData")
 
 # Discard rows with missing data
 dat <- dat[!is.na(dat$meanDNAmeth),]
@@ -416,12 +416,12 @@ glm_summary <- summary(glm_select)
 glm_coeffs <- glm_summary$coefficients
 glm_predict <- predict(glm_select, type = "response")
 glm_formula <- glm_select$formula
-save(glm_stepAIC, file = "GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_stepAIC.RData")
-save(glm_select, file = "GLM_binomial_logit_10kbWin_1bpStep_SNPsPB.RData")
-save(glm_summary, file = "GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_summary.RData")
-write.csv(glm_coeffs, file = "GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_coeff.csv")
-save(glm_predict, file = "GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_predict.RData")
-save(glm_formula, file = "GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_stepAIC_selected_formula.RData")
+save(glm_stepAIC, file = "GLM_binomial_logit_1kbWin_1bpStep_SNPsPB_stepAIC.RData")
+save(glm_select, file = "GLM_binomial_logit_1kbWin_1bpStep_SNPsPB.RData")
+save(glm_summary, file = "GLM_binomial_logit_1kbWin_1bpStep_SNPsPB_summary.RData")
+write.csv(glm_coeffs, file = "GLM_binomial_logit_1kbWin_1bpStep_SNPsPB_coeff.csv")
+save(glm_predict, file = "GLM_binomial_logit_1kbWin_1bpStep_SNPsPB_predict.RData")
+save(glm_formula, file = "GLM_binomial_logit_1kbWin_1bpStep_SNPsPB_stepAIC_selected_formula.RData")
 
 # Plot observed and predicted crossovers for regionsGR grouped into hexiles
 
@@ -437,7 +437,7 @@ ssID <- split(x = 1:nrow(dat),
               f = cut(x = dat$meanSPO11,
                       breaks = c(min(dat$meanSPO11, na.rm = T),
                                  sort(dat$meanSPO11)[round(1:6*(nrow(dat)/6))])))
-pdf("GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_SPO11_hexiles_CO_boxplot.pdf")
+pdf("GLM_binomial_logit_1kbWin_1bpStep_SNPsPB_SPO11_hexiles_CO_boxplot.pdf")
 boxplot(
   lapply(ssID, function(x) {
     sapply(1:100, function(ii) {
@@ -465,17 +465,20 @@ dev.off()
 
 # meanSNPsPB hexiles
 sort(dat$meanSNPsPB)[round(1:6*(nrow(dat)/6))]
+#[1] 0.002004717 0.004002079 0.006371795 0.010021739 0.015288462 0.062791667
 #[1] 0.002355150 0.003801124 0.005421569 0.007500909 0.010410427 0.038117165
 levels(cut(x = dat$meanSNPsPB,
            breaks = c(min(dat$meanSNPsPB, na.rm = T),
                       sort(dat$meanSNPsPB)[round(1:6*(nrow(dat)/6))])))
+#[1] "(1.13e-05,0.002]" "(0.002,0.004]"    "(0.004,0.00637]"  "(0.00637,0.01]"
+#[5] "(0.01,0.0153]"    "(0.0153,0.0628]"
 #[1] "(1.17e-06,0.00236]" "(0.00236,0.0038]"   "(0.0038,0.00542]"
 #[4] "(0.00542,0.0075]"   "(0.0075,0.0104]"    "(0.0104,0.0381]"
 ssID <- split(x = 1:nrow(dat),
               f = cut(x = dat$meanSNPsPB,
                       breaks = c(min(dat$meanSNPsPB, na.rm = T),
                                  sort(dat$meanSNPsPB)[round(1:6*(nrow(dat)/6))])))
-pdf("GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_SNPsPerBase_hexiles_CO_boxplot.pdf")
+pdf("GLM_binomial_logit_1kbWin_1bpStep_SNPsPB_SNPsPerBase_hexiles_CO_boxplot.pdf")
 boxplot(
   lapply(ssID, function(x) {
     sapply(1:100, function(ii) {
@@ -513,7 +516,7 @@ ssID <- split(x = 1:nrow(dat),
               f = cut(x = dat$meanMNase,
                       breaks = c(min(dat$meanMNase, na.rm = T),
                                  sort(dat$meanMNase)[round(1:6*(nrow(dat)/6))])))
-pdf("GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_MNase_hexiles_CO_boxplot.pdf")
+pdf("GLM_binomial_logit_1kbWin_1bpStep_SNPsPB_MNase_hexiles_CO_boxplot.pdf")
 boxplot(
   lapply(ssID, function(x) {
     sapply(1:100, function(ii) {
@@ -551,7 +554,7 @@ ssID <- split(x = 1:nrow(dat),
               f = cut(x = dat$meanH3K4me3,
                       breaks = c(min(dat$meanH3K4me3, na.rm = T),
                                  sort(dat$meanH3K4me3)[round(1:6*(nrow(dat)/6))])))
-pdf("GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_H3K4me3_hexiles_CO_boxplot.pdf")
+pdf("GLM_binomial_logit_1kbWin_1bpStep_SNPsPB_H3K4me3_hexiles_CO_boxplot.pdf")
 boxplot(
   lapply(ssID, function(x) {
     sapply(1:100, function(ii) {
@@ -589,7 +592,7 @@ ssID <- split(x = 1:nrow(dat),
               f = cut(x = dat$meanDNAmeth,
                       breaks = c(
                                  sort(dat$meanDNAmeth)[round(1:6*(nrow(dat)/6))])))
-pdf("GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_DNAmeth_quintiles_CO_boxplot.pdf")
+pdf("GLM_binomial_logit_1kbWin_1bpStep_SNPsPB_DNAmeth_quintiles_CO_boxplot.pdf")
 boxplot(
   lapply(ssID, function(x) {
     sapply(1:100, function(ii) {
@@ -627,7 +630,7 @@ ssID <- split(x = 1:nrow(dat),
               f = cut(x = dat$width,
                       breaks = c(min(dat$width, na.rm = T),
                                  sort(dat$width)[round(1:6*(nrow(dat)/6))])))
-pdf("GLM_binomial_logit_10kbWin_1bpStep_SNPsPB_width_hexiles_CO_boxplot.pdf")
+pdf("GLM_binomial_logit_1kbWin_1bpStep_SNPsPB_width_hexiles_CO_boxplot.pdf")
 boxplot(
   lapply(ssID, function(x) {
     sapply(1:100, function(ii) {
