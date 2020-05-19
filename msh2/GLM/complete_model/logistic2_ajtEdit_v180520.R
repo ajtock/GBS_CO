@@ -359,7 +359,7 @@ save(dat, file = paste0(outDir, "df_for_GLM_binomial_logit_",
                         winSize/1e3, "kbWin_", stepSize, "bpStep.RData"))
 
 ## Discard rows with missing data
-#dat <- dat[!is.na(dat$meanDNAmeth),]
+dat <- dat[!is.na(dat$meanDNAmeth),]
 
 # Build binomial GLM with "logit" link function
 glmCO <- glm2(formula = CO ~ (meanSPO11 + meanMNase + meanH3K4me3 + meanDNAmeth + meanSNPsPB + width)^2,
