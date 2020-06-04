@@ -393,6 +393,7 @@ save(glm_formula, file = paste0(outDir, "GLM_binomial_logit_",
 
 # Plot observed and predicted crossovers for regionsGR grouped into hexiles
 
+# ylims 0 to max
 # meanSNPsPB hexiles
 sort(dat$meanSNPsPB)[round(1:6*(nrow(dat)/6))]
 #[1] 0.002005495 0.004004255 0.006650165 0.010117647 0.015663462 0.062791667
@@ -636,6 +637,268 @@ pdf(paste0(plotDir, "GLM_binomial_logit_", winSize/1e3, "kbWin_", stepSize, "bpS
 boxplot(
   pco,
   ylim = c(0, max(c(unlist(pco), tco), na.rm = T)),
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPsPB+width)^2",
+  xlab = "DNA methylation quintiles",
+  ylab = "Crossovers per Mb",
+  cex.axis = 0.5
+#  names = as.character(6:1)
+)
+tco <- sapply(ssID, function(x) {
+  sum(dat$CO[x]) /
+  sum(dat$width[x]) * 1e6
+})
+points(x = 1:length(ssID),
+       y = tco,
+       col = "red", pch = 19)
+legend("topright",
+       legend = c("Observed", "Predicted"),
+       text.col = c("red", "black"), bty = "n")
+dev.off()
+
+# ylims 0 to 60
+# meanSNPsPB hexiles
+sort(dat$meanSNPsPB)[round(1:6*(nrow(dat)/6))]
+#[1] 0.002005495 0.004004255 0.006650165 0.010117647 0.015663462 0.062791667
+levels(cut(x = dat$meanSNPsPB,
+           breaks = c(min(dat$meanSNPsPB, na.rm = T),
+                      sort(dat$meanSNPsPB)[round(1:6*(nrow(dat)/6))])))
+#[1] "(1.04e-07,0.00201]" "(0.00201,0.004]"    "(0.004,0.00665]"
+#[4] "(0.00665,0.0101]"   "(0.0101,0.0157]"    "(0.0157,0.0628]"
+ssID <- split(x = 1:nrow(dat),
+              f = cut(x = dat$meanSNPsPB,
+                      breaks = c(min(dat$meanSNPsPB, na.rm = T),
+                                 sort(dat$meanSNPsPB)[round(1:6*(nrow(dat)/6))])))
+pco <- lapply(ssID, function(x) {
+  sapply(1:100, function(ii) {
+    sum( rbinom(n = length(x), size = 1, prob = glm_predict[x]) ) /
+    sum( dat$width[x] ) * 1e6
+  })
+})
+tco <- sapply(ssID, function(x) {
+  sum(dat$CO[x]) /
+  sum(dat$width[x]) * 1e6
+})
+pdf(paste0(plotDir, "GLM_binomial_logit_",
+           winSize/1e3, "kbWin_", stepSize, "bpStep_SNPsPerBase_hexiles_CO_boxplot_ymin0_ymax60.pdf"))
+boxplot(
+  pco,
+  ylim = c(0, 60),
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPsPB+width)^2",
+  xlab = "SNPs per base hexiles",
+  ylab = "Crossovers per Mb",
+  cex.axis = 0.5
+#  names = as.character(6:1)
+)
+points(x = 1:length(ssID),
+       y = tco,
+       col = "red", pch = 19)
+legend("topleft",
+       legend = c("Observed", "Predicted"),
+       text.col = c("red", "black"), bty = "n")
+dev.off()
+
+# width hexiles
+sort(dat$width)[round(1:6*(nrow(dat)/6))]
+#[1]     53     99    168    292    595 127250
+levels(cut(x = dat$width,
+           breaks = c(min(dat$width, na.rm = T),
+                      sort(dat$width)[round(1:6*(nrow(dat)/6))])))
+#[1] "(4,53]"         "(53,99]"        "(99,168]"       "(168,292]"
+#[5] "(292,595]"      "(595,1.27e+05]"
+ssID <- split(x = 1:nrow(dat),
+              f = cut(x = dat$width,
+                      breaks = c(min(dat$width, na.rm = T),
+                                 sort(dat$width)[round(1:6*(nrow(dat)/6))])))
+pco <- lapply(ssID, function(x) {
+  sapply(1:100, function(ii) {
+    sum( rbinom(n = length(x), size = 1, prob = glm_predict[x]) ) /
+    sum( dat$width[x] ) * 1e6
+  })
+})
+tco <- sapply(ssID, function(x) {
+  sum(dat$CO[x]) /
+  sum(dat$width[x]) * 1e6
+})
+pdf(paste0(plotDir, "GLM_binomial_logit_", winSize/1e3, "kbWin_", stepSize, "bpStep_width_hexiles_CO_boxplot_ymin0_ymax60.pdf"))
+boxplot(
+  pco,
+  ylim = c(0, 60),
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPsPB+width)^2",
+  xlab = "Width hexiles",
+  ylab = "Crossovers per Mb",
+  cex.axis = 0.5
+#  names = as.character(6:1)
+)
+tco <- sapply(ssID, function(x) {
+  sum(dat$CO[x]) /
+  sum(dat$width[x]) * 1e6
+})
+points(x = 1:length(ssID),
+       y = tco,
+       col = "red", pch = 19)
+legend("topright",
+       legend = c("Observed", "Predicted"),
+       text.col = c("red", "black"), bty = "n")
+dev.off()
+
+# meanSPO11 hexiles
+sort(dat$meanSPO11)[round(1:6*(nrow(dat)/6))]
+#[1] -1.231059665 -0.740196379 -0.383552660 -0.004741569  0.465551989 [6]  4.399179154
+levels(cut(x = dat$meanSPO11,
+           breaks = c(min(dat$meanSPO11, na.rm = T),
+                      sort(dat$meanSPO11)[round(1:6*(nrow(dat)/6))])))
+#[1] "(-4.47,-1.23]"     "(-1.23,-0.74]"     "(-0.74,-0.384]"
+#[4] "(-0.384,-0.00474]" "(-0.00474,0.466]"  "(0.466,4.4]"
+ssID <- split(x = 1:nrow(dat),
+              f = cut(x = dat$meanSPO11,
+                      breaks = c(min(dat$meanSPO11, na.rm = T),
+                                 sort(dat$meanSPO11)[round(1:6*(nrow(dat)/6))])))
+pco <- lapply(ssID, function(x) {
+  sapply(1:100, function(ii) {
+    sum( rbinom(n = length(x), size = 1, prob = glm_predict[x]) ) /
+    sum( dat$width[x] ) * 1e6
+  })
+})
+tco <- sapply(ssID, function(x) {
+  sum(dat$CO[x]) /
+  sum(dat$width[x]) * 1e6
+})
+pdf(paste0(plotDir, "GLM_binomial_logit_", winSize/1e3, "kbWin_", stepSize, "bpStep_SPO11_hexiles_CO_boxplot_ymin0_ymax60.pdf"))
+boxplot(
+  pco,
+  ylim = c(0, 60),
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPsPB+width)^2",
+  xlab = "SPO11-1-oligo hexiles",
+  ylab = "Crossovers per Mb",
+  cex.axis = 0.5
+#  names = as.character(6:1)
+)
+tco <- sapply(ssID, function(x) {
+  sum(dat$CO[x]) /
+  sum(dat$width[x]) * 1e6
+})
+points(x = 1:length(ssID),
+       y = tco,
+       col = "red", pch = 19)
+legend("topleft",
+       legend = c("Observed", "Predicted"),
+       text.col = c("red", "black"), bty = "n")
+dev.off()
+
+# meanMNase hexiles
+sort(dat$meanMNase)[round(1:6*(nrow(dat)/6))]
+#[1] -1.16445198 -0.50423235 -0.01477396  0.39903072  0.82942352  3.26628143
+levels(cut(x = dat$meanMNase,
+           breaks = c(min(dat$meanMNase, na.rm = T),
+                      sort(dat$meanMNase)[round(1:6*(nrow(dat)/6))])))
+#[1] "(-4.76,-1.16]"    "(-1.16,-0.504]"   "(-0.504,-0.0148]" "(-0.0148,0.399]"
+#[5] "(0.399,0.829]"    "(0.829,3.27]"
+ssID <- split(x = 1:nrow(dat),
+              f = cut(x = dat$meanMNase,
+                      breaks = c(min(dat$meanMNase, na.rm = T),
+                                 sort(dat$meanMNase)[round(1:6*(nrow(dat)/6))])))
+pco <- lapply(ssID, function(x) {
+  sapply(1:100, function(ii) {
+    sum( rbinom(n = length(x), size = 1, prob = glm_predict[x]) ) /
+    sum( dat$width[x] ) * 1e6
+  })
+})
+tco <- sapply(ssID, function(x) {
+  sum(dat$CO[x]) /
+  sum(dat$width[x]) * 1e6
+})
+pdf(paste0(plotDir, "GLM_binomial_logit_", winSize/1e3, "kbWin_", stepSize, "bpStep_MNase_hexiles_CO_boxplot_ymin0_ymax60.pdf"))
+boxplot(
+  pco,
+  ylim = c(0, 60),
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPsPB+width)^2",
+  xlab = "Nucleosomes hexiles",
+  ylab = "Crossovers per Mb",
+  cex.axis = 0.5
+#  names = as.character(6:1)
+)
+tco <- sapply(ssID, function(x) {
+  sum(dat$CO[x]) /
+  sum(dat$width[x]) * 1e6
+})
+points(x = 1:length(ssID),
+       y = tco,
+       col = "red", pch = 19)
+legend("topright",
+       legend = c("Observed", "Predicted"),
+       text.col = c("red", "black"), bty = "n")
+dev.off()
+
+# meanH3K4me3 hexiles
+sort(dat$meanH3K4me3)[round(1:6*(nrow(dat)/6))]
+#[1] -1.8795789 -1.3227856 -0.7459590 -0.1397163  0.5624519  4.1235247
+levels(cut(x = dat$meanH3K4me3,
+           breaks = c(min(dat$meanH3K4me3, na.rm = T),
+                      sort(dat$meanH3K4me3)[round(1:6*(nrow(dat)/6))])))
+#[1] "(-5.03,-1.88]"  "(-1.88,-1.32]"  "(-1.32,-0.746]" "(-0.746,-0.14]"
+#[5] "(-0.14,0.562]"  "(0.562,4.12]"
+ssID <- split(x = 1:nrow(dat),
+              f = cut(x = dat$meanH3K4me3,
+                      breaks = c(min(dat$meanH3K4me3, na.rm = T),
+                                 sort(dat$meanH3K4me3)[round(1:6*(nrow(dat)/6))])))
+pco <- lapply(ssID, function(x) {
+  sapply(1:100, function(ii) {
+    sum( rbinom(n = length(x), size = 1, prob = glm_predict[x]) ) /
+    sum( dat$width[x] ) * 1e6
+  })
+})
+tco <- sapply(ssID, function(x) {
+  sum(dat$CO[x]) /
+  sum(dat$width[x]) * 1e6
+})
+pdf(paste0(plotDir, "GLM_binomial_logit_", winSize/1e3, "kbWin_", stepSize, "bpStep_H3K4me3_hexiles_CO_boxplot_ymin0_ymax60.pdf"))
+boxplot(
+  pco,
+  ylim = c(0, 60),
+  main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPsPB+width)^2",
+  xlab = "H3K4me3 hexiles",
+  ylab = "Crossovers per Mb",
+  cex.axis = 0.5
+#  names = as.character(6:1)
+)
+tco <- sapply(ssID, function(x) {
+  sum(dat$CO[x]) /
+  sum(dat$width[x]) * 1e6
+})
+points(x = 1:length(ssID),
+       y = tco,
+       col = "red", pch = 19)
+legend("topright",
+       legend = c("Observed", "Predicted"),
+       text.col = c("red", "black"), bty = "n")
+dev.off()
+
+# meanDNAmeth quintiles
+sort(dat$meanDNAmeth)[round(1:6*(nrow(dat)/6))]
+#[1] 0.000000000 0.002380967 0.014949459 0.204084944 0.450664333 1.000000000
+levels(cut(x = dat$meanDNAmeth,
+           breaks = c(
+                      sort(dat$meanDNAmeth)[round(1:6*(nrow(dat)/6))])))
+#[1] "(0,0.00238]"      "(0.00238,0.0149]" "(0.0149,0.204]"   "(0.204,0.451]"
+#[5] "(0.451,1]"
+ssID <- split(x = 1:nrow(dat),
+              f = cut(x = dat$meanDNAmeth,
+                      breaks = c(
+                                 sort(dat$meanDNAmeth)[round(1:6*(nrow(dat)/6))])))
+pco <- lapply(ssID, function(x) {
+  sapply(1:100, function(ii) {
+    sum( rbinom(n = length(x), size = 1, prob = glm_predict[x]) ) /
+    sum( dat$width[x] ) * 1e6
+  })
+})
+tco <- sapply(ssID, function(x) {
+  sum(dat$CO[x]) /
+  sum(dat$width[x]) * 1e6
+})
+pdf(paste0(plotDir, "GLM_binomial_logit_", winSize/1e3, "kbWin_", stepSize, "bpStep_DNAmeth_quintiles_CO_boxplot_ymin0_ymax60.pdf"))
+boxplot(
+  pco,
+  ylim = c(0, 60),
   main = "CO~(SPO11-1+nucleosomes+H3K4me3+DNAmeth+SNPsPB+width)^2",
   xlab = "DNA methylation quintiles",
   ylab = "Crossovers per Mb",
