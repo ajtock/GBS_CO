@@ -27,7 +27,6 @@ library(ggthemes)
 library(ggsignif)
 
 # Genomic definitions
-# Genomic definitions
 chrs <- c("Chr1", "Chr2", "Chr3", "Chr4", "Chr5")
 chrStart <- c(rep(1, 5))
 chrLens <- c(30427671, 19698289, 23459830, 18585056, 26975502)
