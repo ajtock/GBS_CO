@@ -29,7 +29,7 @@ library(pscl) # zeroinfl() included
 #propName <- paste0(as.character(prop), "ths")
 #FDR <- 0.1
 #FDRname <- paste0("FDR", as.character(FDR))
-#chr <- "Chr1"
+#chr <- "Chr2"
 #chrint <- as.integer(substr(chr, 4, 4))
 
 args <- commandArgs(trailingOnly = TRUE)
@@ -39,8 +39,11 @@ prop <- as.numeric(args[3])
 propName <- paste0(as.character(prop), "ths")
 FDR <- as.numeric(args[4])
 FDRname <- paste0("FDR", as.character(FDR))
-chr <- as.integer(args[5])
+chr <- as.character(args[5])
 chrint <- as.integer(substr(chr, 4, 4))
+
+print(chr)
+print(chrint)
 
 # Load list of matrices in which each list element is a matrix of windowed
 # TEL-CEN crossover interval counts for one F2 individual
@@ -281,17 +284,17 @@ poisson_AIC <- sapply(seq_along(poisson), function(x) {
     NA
   }
 })
-# Get 95% confidence intervals
-poisson_CIs <- lapply(seq_along(poisson), function(x) {
-  if( sum(pops_winIndCOs_list[[x]]) > 0 ) {
-   confint(poisson[[x]])
-  } else {
-    mat <- matrix(rep(NA, times = 4), ncol = 2)
-    rownames(mat) <- c("(Intercept)", paste0("genotype", pop2Name))
-    colnames(mat) <- c("2.5 %", "97.5 %")
-    mat
-  }
-})
+## Get 95% confidence intervals
+#poisson_CIs <- lapply(seq_along(poisson), function(x) {
+#  if( sum(pops_winIndCOs_list[[x]]) > 0 ) {
+#   confint(poisson[[x]])
+#  } else {
+#    mat <- matrix(rep(NA, times = 4), ncol = 2)
+#    rownames(mat) <- c("(Intercept)", paste0("genotype", pop2Name))
+#    colnames(mat) <- c("2.5 %", "97.5 %")
+#    mat
+#  }
+#})
 
 # Evaluate model goodness-of-fit using chi-squared test based on the
 # residual deviance and degrees of freedom
@@ -322,23 +325,23 @@ poisson_predict <- lapply(seq_along(poisson), function(x) {
        )
 })
 
-# Zero-inflated Poisson (ZIP) regression:
-ZIP <- lapply(seq_along(pops_winIndCOs_list), function(x) {
-  zeroinfl(formula = pops_winIndCOs_list[[x]] ~ genotype | 1,
-           dist = "poisson",
-           maxit = 2000)
-})
-print("Representative example: ZIP model for first genomic window")
-print(summary(ZIP[[1]]))
-
-# Get Bayesian Information Criterion (BIC); the smaller, the better the fit
-ZIP_BIC <- sapply(seq_along(ZIP), function(x) {
-  if( !is.infinite(AIC(ZIP[[x]], k = log(length(pops_winIndCOs_list[[x]])))) ) {
-    AIC(ZIP[[x]], k = log(length(pops_winIndCOs_list[[x]])))
-  } else {
-    NA
-  }
-})
+## Zero-inflated Poisson (ZIP) regression:
+#ZIP <- lapply(seq_along(pops_winIndCOs_list), function(x) {
+#  zeroinfl(formula = pops_winIndCOs_list[[x]] ~ genotype | 1,
+#           dist = "poisson",
+#           maxit = 2000)
+#})
+#print("Representative example: ZIP model for first genomic window")
+#print(summary(ZIP[[1]]))
+#
+## Get Bayesian Information Criterion (BIC); the smaller, the better the fit
+#ZIP_BIC <- sapply(seq_along(ZIP), function(x) {
+#  if( !is.infinite(AIC(ZIP[[x]], k = log(length(pops_winIndCOs_list[[x]])))) ) {
+#    AIC(ZIP[[x]], k = log(length(pops_winIndCOs_list[[x]])))
+#  } else {
+#    NA
+#  }
+#})
 
 # Determine if Poisson BIC is lower than normal BIC (indicating better fit)
 poisson_BIC_vs_normal_BIC <- sapply(seq_along(poisson), function(x) {
@@ -353,12 +356,12 @@ print(paste0("Poisson BIC is < Normal BIC for ",
 print(paste0("Normal BIC is NA for ",
              sum(normal_BIC_isNA), "/", length(normal), " scaled windows"))
 
-# Determine if Poisson BIC is lower than ZIP BIC (indicating better fit)
-poisson_BIC_vs_ZIP_BIC <- sapply(seq_along(poisson), function(x) {
-  poisson_BIC[x] < ZIP_BIC[x]
-})
-print(paste0("Poisson BIC is < ZIP BIC for ",
-             sum(poisson_BIC_vs_ZIP_BIC, na.rm = T), "/", length(poisson), " scaled windows"))
+## Determine if Poisson BIC is lower than ZIP BIC (indicating better fit)
+#poisson_BIC_vs_ZIP_BIC <- sapply(seq_along(poisson), function(x) {
+#  poisson_BIC[x] < ZIP_BIC[x]
+#})
+#print(paste0("Poisson BIC is < ZIP BIC for ",
+#             sum(poisson_BIC_vs_ZIP_BIC, na.rm = T), "/", length(poisson), " scaled windows"))
 
 # Note: negative binomial models should not be fit to these data
 # due to absence of overdispersion 
