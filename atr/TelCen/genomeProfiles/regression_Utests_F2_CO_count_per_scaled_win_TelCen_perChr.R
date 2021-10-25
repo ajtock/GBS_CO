@@ -46,7 +46,7 @@ chrint <- as.integer(substr(chr, 4, 4))
 # TEL-CEN crossover interval counts for one F2 individual
 load(paste0("./", pop1Name,
             "_pooled_F2_CO_frequency_",
-            propName, "_TelCenMatrix_list_", chr, ".RData"))
+            propName, "_TelCenMatrix_list.RData"))
 pop1_indCOs_perWindow_list <- indCOs_perWindow_list
 pop1_indCOs_perWindow_list <- lapply(seq_along(pop1_indCOs_perWindow_list), function(x) {
   pop1_indCOs_perWindow_list[[x]][ , seq(1, 10, 2)[chrint] : (seq(1, 10, 2)[chrint]+1) ]
@@ -55,7 +55,7 @@ rm(indCOs_perWindow_list)
 
 load(paste0("./", pop2Name,
             "_pooled_F2_CO_frequency_",
-            propName, "_TelCenMatrix_list_", chr, ".RData"))
+            propName, "_TelCenMatrix_list.RData"))
 pop2_indCOs_perWindow_list <- indCOs_perWindow_list
 pop2_indCOs_perWindow_list <- lapply(seq_along(pop2_indCOs_perWindow_list), function(x) {
   pop2_indCOs_perWindow_list[[x]][ , seq(1, 10, 2)[chrint] : (seq(1, 10, 2)[chrint]+1) ]
@@ -124,7 +124,7 @@ plot(x = pop1_winIndCOs_means, y = pop1_winIndCOs_vars, pch = 19,
      ylim = c(min(pop1_winIndCOs_means, pop1_winIndCOs_vars),
               max(pop1_winIndCOs_means, pop1_winIndCOs_vars)),
      main = paste0(pop1Name, " crossovers in ", propName,
-                   " of chromosome arms"),
+                   " of chromosome arms (", chr, ")"),
      cex.main = 0.8)
 plot(x = pop2_winIndCOs_means, y = pop2_winIndCOs_vars, pch = 19,
      xlab = "Mean", ylab = "Variance",
@@ -133,7 +133,7 @@ plot(x = pop2_winIndCOs_means, y = pop2_winIndCOs_vars, pch = 19,
      ylim = c(min(pop2_winIndCOs_means, pop2_winIndCOs_vars),
               max(pop2_winIndCOs_means, pop2_winIndCOs_vars)),
      main = paste0(pop2Name, " crossovers in ", propName,
-                   " of chromosome arms"),
+                   " of chromosome arms (", chr, ")"),
      cex.main = 0.8)
 dev.off()
 
@@ -382,7 +382,7 @@ par(mfrow = c(1, 1))
 par(mar = c(4.1, 4.1, 3.1, 4.1))
 par(mgp = c(3, 1, 0))
 plot(x = 1:length(poisson_BIC), y = poisson_BIC, col = "red", type = "p", pch = 19,
-     xlab = paste0("Scaled windows (", propName, ")"),
+     xlab = paste0("Scaled windows (", chr, " ", propName, ")"),
      ylab = "BIC",
      ylim = c(min(c(poisson_BIC, normal_BIC), na.rm = T),
               max(c(poisson_BIC, normal_BIC), na.rm = T)))
@@ -404,7 +404,7 @@ par(mfrow = c(1, 1))
 par(mar = c(4.1, 4.1, 3.1, 4.1))
 par(mgp = c(3, 1, 0))
 plot(x = 1:length(poisson_AIC), y = poisson_AIC, col = "red", type = "p", pch = 19,
-     xlab = paste0("Scaled windows (", propName, ")"),
+     xlab = paste0("Scaled windows (", chr, " ", propName, ")"),
      ylab = "AIC",
      ylim = c(min(c(poisson_AIC, normal_AIC), na.rm = T),
               max(c(poisson_AIC, normal_AIC), na.rm = T)))
@@ -416,7 +416,6 @@ legend("top",
        text.font = c(1, 1),
        ncol = 1, cex = 0.7, lwd = 1.5, bty = "n")
 dev.off()
-
 
 
 
@@ -475,9 +474,8 @@ minusLog10PvalPlot <- function(xplot,
                     pretty(1:length(xplot))[2:(length(pretty(1:length(xplot)))-1)],
                     expression(italic("CEN"))))
   }
-  mtext(side = 1, line = 2.25, cex = 1, text = paste0("Scaled windows (", propName, ")"))
+  mtext(side = 1, line = 2.25, cex = 1, text = paste0("Scaled windows (", chr, " ", propName, ")"))
   abline(h = -log10(FDR), lty = 5, lwd = 1, col = AdjPvalsCol)
-
   box(lwd = 1.5)
 }
 
@@ -508,7 +506,7 @@ pop1Vpop2GenomePlot <- function(xplot,
                     pretty(1:length(xplot))[2:(length(pretty(1:length(xplot)))-1)],
                     expression(italic("CEN"))))
   }
-  mtext(side = 1, line = 2.25, cex = 1, text = paste0("Scaled windows (", propName, ")"))
+  mtext(side = 1, line = 2.25, cex = 1, text = paste0("Scaled windows (", chr, " ", propName, ")"))
   axis(side = 2, cex.axis = 1, lwd.tick = 1.5)
   mtext(side = 2, line = 2.25, cex = 1, text = Ylabel, col = "black")
   box(lwd = 1.5)
@@ -546,7 +544,7 @@ pop1Vpop2GenomePlot(xplot = 1:length(pop1_winIndCOs_means),
                     pop1Col = "grey50",
                     pop2Col = "forestgreen")
 dev.off()
-print(paste0("MannWhitneyWilcoxon_Pvals_TelCenProfiles_", pop1Name, "_vs_", pop2Name, "_", propName, "_", FDRname, ".pdf written to ", UtestPlotDir))
+print(paste0("MannWhitneyWilcoxon_Pvals_TelCenProfiles_", pop1Name, "_vs_", pop2Name, "_", propName, "_", FDRname, "_", chr, ".pdf written to ", UtestPlotDir))
 
 # Plot genome profiles of normal linear regression P-values and 
 # population mean crossovers per window
@@ -573,7 +571,7 @@ pop1Vpop2GenomePlot(xplot = 1:length(pop1_winIndCOs_means),
                     pop1Col = "grey50",
                     pop2Col = "forestgreen")
 dev.off()
-print(paste0("NormalLinearRegression_Pvals_TelCenProfiles_", pop1Name, "_vs_", pop2Name, "_", propName, "_", FDRname, ".pdf written to ", plotDir))
+print(paste0("NormalLinearRegression_Pvals_TelCenProfiles_", pop1Name, "_vs_", pop2Name, "_", propName, "_", FDRname, "_", chr, ".pdf written to ", plotDir))
 
 # Plot genome profiles of Poisson regression P-values and 
 # population mean crossovers per window
@@ -600,3 +598,5 @@ pop1Vpop2GenomePlot(xplot = 1:length(pop1_winIndCOs_means),
                     pop1Col = "grey50",
                     pop2Col = "forestgreen")
 dev.off()
+print(paste0("PoissonRegression_Pvals_TelCenProfiles_", pop1Name, "_vs_", pop2Name, "_", propName, "_", FDRname, "_", chr, ".pdf written to ", plotDir))
+
